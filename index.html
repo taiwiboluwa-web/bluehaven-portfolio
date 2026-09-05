@@ -10,6 +10,33 @@
 
     <body>
       <div id="root"></div>
+      <script>
+        (() => {
+          const addAdminLink = () => {
+            const footer = document.querySelector('footer');
+            if (!footer || footer.querySelector('[data-bluehaven-admin-link]')) return;
+
+            const terms = Array.from(footer.querySelectorAll('a')).find(
+              (link) => link.textContent?.trim().toLowerCase() === 'terms of service'
+            );
+            if (!terms?.parentElement) return;
+
+            const admin = document.createElement('a');
+            admin.href = '/admin';
+            admin.textContent = 'Admin';
+            admin.setAttribute('aria-label', 'Bluehaven Studios Admin');
+            admin.setAttribute('data-bluehaven-admin-link', 'true');
+            admin.style.cssText = 'color:#4b5563;text-decoration:none;font-size:10px;line-height:1.25rem;transition:color .2s ease;';
+            admin.onmouseenter = () => { admin.style.color = '#d1d5db'; };
+            admin.onmouseleave = () => { admin.style.color = '#4b5563'; };
+            terms.parentElement.insertAdjacentElement('afterend', admin);
+          };
+
+          const observer = new MutationObserver(addAdminLink);
+          observer.observe(document.documentElement, { childList: true, subtree: true });
+          addAdminLink();
+        })();
+      </script>
       <script type="module" src="/src/main.tsx"></script>
     </body>
   </html>
