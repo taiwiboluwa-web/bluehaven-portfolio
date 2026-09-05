@@ -11,6 +11,7 @@ const isAuthed = req => Boolean(password()) && cookieValue(req) === sign('admin'
 const setAuth = res => res.setHeader('Set-Cookie', `${COOKIE}=${encodeURIComponent(sign('admin'))}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=43200`);
 const clearAuth = res => res.setHeader('Set-Cookie', `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`);
 async function body(req){ if(req.body) return typeof req.body==='string'?JSON.parse(req.body):req.body; return new Promise((resolve,reject)=>{let raw='';req.on('data',c=>raw+=c);req.on('end',()=>{try{resolve(raw?JSON.parse(raw):{});}catch(e){reject(e);}});req.on('error',reject);}); }
+const validImageDataUrl = value => typeof value === 'string' && /^data:image\/(png|jpe?g|webp|gif|svg\+xml);base64,/i.test(value) && value.length <= 4_500_000;
 
 export default async function handler(req,res){
   res.setHeader('Cache-Control','no-store');
@@ -38,13 +39,30 @@ export default async function handler(req,res){
     if(data.action==='saveProject'){
       if(!data.name||!data.slug)return res.status(400).json({error:'Project name and slug are required.'});
       const gallery=data.galleryLayout || {type:'grid',columns:3,gap:'comfortable',aspectRatio:'landscape',featured:'first'};
+      if(gallery.logoUrl && !validImageDataUrl(gallery.logoUrl) && !/^https?:\/\//i.test(gallery.logoUrl)) return res.status(400).json({error:'Invalid project logo.'});
       if(data.id) await sql`UPDATE portfolio_projects SET name=${data.name},slug=${data.slug},category=${data.category||null},description=${data.description||null},website_url=${data.websiteUrl||null},visible=${data.visible!==false},sort_order=${Number(data.sortOrder)||0},gallery_layout=${gallery},updated_at=now() WHERE id=${data.id}`;
       else await sql`INSERT INTO portfolio_projects(slug,name,category,description,website_url,visible,sort_order,gallery_layout) VALUES(${data.slug},${data.name},${data.category||null},${data.description||null},${data.websiteUrl||null},${data.visible!==false},${Number(data.sortOrder)||0},${gallery})`;
+      return res.status(200).json({ok:true});
+    }
+    if(data.action==='saveProjectLogo'){
+      if(!data.projectId||!validImageDataUrl(data.logoUrl)) return res.status(400).json({error:'A valid image from your device is required.'});
+      const current=(await sql`SELECT gallery_layout FROM portfolio_projects WHERE id=${data.projectId}`)[0];
+      if(!current)return res.status(404).json({error:'Project not found.'});
+      const layout={...(current.gallery_layout||{}),logoUrl:data.logoUrl};
+      await sql`UPDATE portfolio_projects SET gallery_layout=${layout},updated_at=now() WHERE id=${data.projectId}`;
+      return res.status(200).json({ok:true});
+    }
+    if(data.action==='removeProjectLogo'){
+      const current=(await sql`SELECT gallery_layout FROM portfolio_projects WHERE id=${data.projectId}`)[0];
+      if(!current)return res.status(404).json({error:'Project not found.'});
+      const layout={...(current.gallery_layout||{})}; delete layout.logoUrl;
+      await sql`UPDATE portfolio_projects SET gallery_layout=${layout},updated_at=now() WHERE id=${data.projectId}`;
       return res.status(200).json({ok:true});
     }
     if(data.action==='deleteProject'){await sql`DELETE FROM portfolio_projects WHERE id=${data.id}`;return res.status(200).json({ok:true});}
     if(data.action==='saveMedia'){
       if(!data.projectId||!data.url)return res.status(400).json({error:'Project and image URL are required.'});
+      if(validImageDataUrl(data.url)===false && /^data:image\//i.test(data.url)) return res.status(400).json({error:'Device image is too large or unsupported. Use an image under about 3 MB.'});
       if(data.id) await sql`UPDATE portfolio_media SET storage_url=${data.url},storage_key=${data.storageKey||null},alt_text=${data.alt||null},media_type=${data.type||'image'},sort_order=${Number(data.order)||0},featured=${Boolean(data.featured)},updated_at=now() WHERE id=${data.id}`;
       else await sql`INSERT INTO portfolio_media(project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured) VALUES(${data.projectId},${data.url},${data.storageKey||null},${data.alt||null},${data.type||'image'},${Number(data.order)||0},${Boolean(data.featured)})`;
       return res.status(200).json({ok:true});
