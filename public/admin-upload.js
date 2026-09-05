@@ -37,7 +37,7 @@
     reader.readAsDataURL(file);
   });
 
-  async function optimize(file, maxSide = 1800) {
+  async function optimize(file, maxSide = 1800, preserveAlpha = false) {
     if (!file?.type?.startsWith('image/')) throw Error(`${file?.name || 'File'} is not an image.`);
     if (file.size > MAX_SOURCE) throw Error(`${file.name} is over 12 MB.`);
     const { img } = await readImage(file);
@@ -49,8 +49,14 @@
     canvas.height = Math.max(1, Math.round(height * scale));
     const ctx = canvas.getContext('2d', { alpha: true });
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    let url = canvas.toDataURL('image/webp', .82);
-    if (!url.startsWith('data:image/webp') || url.length > MAX_OUTPUT) url = canvas.toDataURL('image/jpeg', .80);
+
+    let url = canvas.toDataURL('image/webp', preserveAlpha ? .92 : .82);
+    if (!url.startsWith('data:image/webp') || (!preserveAlpha && url.length > MAX_OUTPUT)) {
+      url = canvas.toDataURL('image/jpeg', .80);
+    }
+    if (preserveAlpha && !url.startsWith('data:image/webp')) {
+      url = canvas.toDataURL('image/png');
+    }
     if (url.length > MAX_OUTPUT) throw Error(`${file.name} is still too large after optimization.`);
     return { url, width: canvas.width, height: canvas.height };
   }
@@ -175,7 +181,7 @@
     try {
       busy = true;
       notify('Optimizing project logo…');
-      const { url } = await optimize(file, 900);
+      const { url } = await optimize(file, 900, true);
       await api({ action: 'saveProjectLogo', projectId: id, logoUrl: url });
       const preview = document.querySelector('#project-logo-preview');
       if (preview) preview.innerHTML = `<img src="${safe(url)}" alt="Project logo">`;
