@@ -1,8 +1,9 @@
+import { chooseGalleryAspect } from './admin-media-utils.mjs';
+
 (() => {
-  const orientation = (w, h) => w === h ? 'square' : w > h ? 'landscape' : 'portrait';
   const loadSize = src => new Promise(resolve => {
     const img = new Image();
-    img.onload = () => resolve(orientation(img.naturalWidth, img.naturalHeight));
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
     img.onerror = () => resolve(null);
     img.src = src;
   });
@@ -14,9 +15,10 @@
       for (const project of projects) {
         const urls = (project.media || []).map(m => m.url).filter(Boolean);
         if (!urls.length) continue;
-        const kinds = new Set((await Promise.all(urls.map(loadSize))).filter(Boolean));
-        if (!kinds.size) continue;
-        const desired = kinds.size > 1 ? 'cms-natural' : `cms-${[...kinds][0]}`;
+        const dimensions = (await Promise.all(urls.map(loadSize))).filter(Boolean);
+        if (!dimensions.length) continue;
+        const aspect = chooseGalleryAspect(dimensions);
+        const desired = `cms-${aspect}`;
         const sections = Array.from(document.querySelectorAll('section')).filter(s => (s.textContent || '').toLowerCase().includes(project.name.toLowerCase()));
         sections.forEach(section => {
           section.querySelectorAll('.bluehaven-cms-gallery').forEach(grid => {
