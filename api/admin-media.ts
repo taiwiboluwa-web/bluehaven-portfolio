@@ -1,5 +1,5 @@
 import { neon } from '@neondatabase/serverless';
-import { isAuthenticated } from './_auth';
+import { isAuthenticated } from './_auth.js';
 
 export default async function handler(req: any, res: any) {
   if (!isAuthenticated(req)) return res.status(401).json({ error: 'Unauthorized' });
