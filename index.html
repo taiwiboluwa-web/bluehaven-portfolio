@@ -7,7 +7,6 @@
       <title>original bluehaven studios web beyond limitssite</title>
       <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
     </head>
-
     <body>
       <div id="root"></div>
       <script>
@@ -18,72 +17,45 @@
             const terms = Array.from(footer.querySelectorAll('a')).find(link => link.textContent?.trim().toLowerCase() === 'terms of service');
             if (!terms?.parentElement) return;
             const admin = document.createElement('a');
-            admin.href = '/admin'; admin.textContent = 'Admin'; admin.setAttribute('aria-label', 'Bluehaven Studios Admin'); admin.setAttribute('data-bluehaven-admin-link', 'true');
-            admin.style.cssText = 'color:#4b5563;text-decoration:none;font-size:10px;line-height:1.25rem;transition:color .2s ease;';
-            admin.onmouseenter = () => { admin.style.color = '#d1d5db'; }; admin.onmouseleave = () => { admin.style.color = '#4b5563'; };
-            terms.parentElement.insertAdjacentElement('afterend', admin);
+            admin.href='/admin'; admin.textContent='Admin'; admin.setAttribute('aria-label','Bluehaven Studios Admin'); admin.setAttribute('data-bluehaven-admin-link','true');
+            admin.style.cssText='color:#4b5563;text-decoration:none;font-size:10px;line-height:1.25rem;transition:color .2s ease;';
+            admin.onmouseenter=()=>{admin.style.color='#d1d5db'}; admin.onmouseleave=()=>{admin.style.color='#4b5563'};
+            terms.parentElement.insertAdjacentElement('afterend',admin);
           };
 
-          const sectionFor = (key, sections) => {
-            const direct = document.querySelector(`[id="${key}"]`);
+          const sectionFor = key => {
+            const direct = document.getElementById(key);
             if (direct) return direct.closest('section') || direct;
-            const needles = {
-              hero: ['bluehaven studios'], about: ['who we are', 'about us'], services: ['what we do'], process: ['the process'], portfolio: ['our recent work'], reviews: ['reviews', 'what clients say'], contact: ['let\'s talk', 'contact us', 'get in touch'], footer: []
-            }[key] || [];
-            const candidates = Array.from(document.querySelectorAll('section'));
-            return candidates.find(section => needles.some(n => (section.textContent || '').toLowerCase().includes(n))) || null;
+            const needles={hero:['bluehaven studios'],about:['who we are','about us'],services:['what we do'],process:['the process'],portfolio:['our recent work'],reviews:['reviews','what clients say'],contact:["let's talk",'contact us','get in touch']}[key]||[];
+            return Array.from(document.querySelectorAll('section')).find(section=>needles.some(n=>(section.textContent||'').toLowerCase().includes(n)))||null;
           };
 
+          let applied=false;
           const applyCms = async () => {
+            if (applied) return;
             try {
-              const response = await fetch('/api/portfolio', { cache: 'no-store' });
-              if (!response.ok) return;
-              const cms = await response.json();
-              const sections = Array.isArray(cms.sections) ? cms.sections : [];
-              const mapped = [];
-              sections.forEach(section => {
-                const el = sectionFor(section.section_key, sections);
-                if (!el) return;
-                el.setAttribute('data-bluehaven-section', section.section_key);
-                el.style.setProperty('--bh-section-width', section.layout?.width === 'full' ? '100%' : section.layout?.width === 'contained' ? '1100px' : '1400px');
-                el.style.setProperty('--bh-section-spacing', section.layout?.spacing === 'compact' ? '2rem' : section.layout?.spacing === 'airy' ? '7rem' : '4rem');
-                el.style.setProperty('--bh-section-columns', String(section.layout?.columns || 3));
-                el.style.textAlign = section.layout?.alignment || 'center';
-                el.style.paddingTop = `var(--bh-section-spacing)`;
-                el.style.paddingBottom = `var(--bh-section-spacing)`;
-                if (section.layout?.width !== 'full') el.style.maxWidth = '100%';
-                if (section.visible === false) el.style.display = 'none'; else el.style.removeProperty('display');
-                if (section.content?.heading) {
-                  const heading = el.querySelector('h1,h2,h3');
-                  if (heading) heading.textContent = section.content.heading;
-                }
-                if (section.content?.intro) {
-                  const paragraphs = Array.from(el.querySelectorAll('p'));
-                  const target = paragraphs.find(p => p.textContent?.trim());
-                  if (target) target.textContent = section.content.intro;
-                }
-                mapped.push({ section, el });
+              const response=await fetch('/api/portfolio',{cache:'no-store'}); if(!response.ok)return;
+              const cms=await response.json(); const sections=Array.isArray(cms.sections)?cms.sections:[]; const mapped=[];
+              sections.forEach(section=>{
+                const el=sectionFor(section.section_key); if(!el)return;
+                el.setAttribute('data-bluehaven-section',section.section_key);
+                const layout=section.layout||{};
+                const spacing=layout.spacing==='compact'?'2rem':layout.spacing==='airy'?'7rem':'4rem';
+                el.style.paddingTop=spacing; el.style.paddingBottom=spacing; el.style.textAlign=layout.alignment||'center';
+                if(section.visible===false)el.style.display='none'; else el.style.removeProperty('display');
+                if(section.content?.heading){const heading=el.querySelector('h1,h2,h3');if(heading)heading.textContent=section.content.heading;}
+                if(section.content?.intro){const p=Array.from(el.querySelectorAll('p')).find(x=>x.textContent?.trim());if(p)p.textContent=section.content.intro;}
+                mapped.push({section,el});
               });
-
-              const main = document.querySelector('main');
-              if (main && mapped.length) {
-                main.style.display = 'flex'; main.style.flexDirection = 'column';
-                mapped.forEach(({section,el}) => {
-                  const direct = el.closest('main > *');
-                  if (direct) { direct.style.order = String(section.sort_order); direct.setAttribute('data-bluehaven-order', String(section.sort_order)); }
-                });
-              }
-
-              const site = cms.settings?.site || {};
-              if (site.title) document.title = site.title;
-              if (site.accent) document.documentElement.style.setProperty('--bluehaven-accent', site.accent);
-            } catch (error) { console.warn('Bluehaven CMS bridge unavailable', error); }
+              const main=document.querySelector('main');
+              if(main&&mapped.length){main.style.display='flex';main.style.flexDirection='column';mapped.forEach(({section,el})=>{const direct=el.closest('main > *');if(direct){direct.style.order=String(section.sort_order);direct.setAttribute('data-bluehaven-order',String(section.sort_order));}});}
+              const site=cms.settings?.site||{}; if(site.title)document.title=site.title; if(site.accent)document.documentElement.style.setProperty('--bluehaven-accent',site.accent);
+              applied=true;
+            }catch(error){console.warn('Bluehaven CMS bridge unavailable',error)}
           };
 
-          const observer = new MutationObserver(() => { addAdminLink(); applyCms(); });
-          observer.observe(document.documentElement, { childList: true, subtree: true });
-          addAdminLink();
-          setTimeout(applyCms, 500);
+          const observer=new MutationObserver(addAdminLink); observer.observe(document.documentElement,{childList:true,subtree:true});
+          addAdminLink(); setTimeout(applyCms,700); setTimeout(applyCms,1800);
         })();
       </script>
       <script type="module" src="/src/main.tsx"></script>
