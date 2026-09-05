@@ -11,7 +11,7 @@ export default async function handler(_req: any, res: any) {
       sql`SELECT setting_key, setting_value FROM site_settings ORDER BY setting_key`,
     ]);
     const settingMap = Object.fromEntries(settings.map((item: any) => [item.setting_key, item.setting_value]));
-    res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=120');
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
     return res.status(200).json({ projects, sections, settings: settingMap });
   } catch (error) {
     console.error(error);
