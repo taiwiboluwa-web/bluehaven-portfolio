@@ -22,7 +22,7 @@
     n.textContent = message;
     n.className = 'upload-toast show';
     clearTimeout(n._timer);
-    n._timer = setTimeout(() => n.classList.remove('show'), 2800);
+    n._timer = setTimeout(() => n.classList.remove('show'), 3200);
   };
 
   const readImage = file => new Promise((resolve, reject) => {
@@ -30,16 +30,16 @@
     reader.onload = () => {
       const img = new Image();
       img.onload = () => resolve({ img, source: String(reader.result) });
-      img.onerror = () => reject(Error('That image could not be read.'));
+      img.onerror = () => reject(Error(`Could not read ${file.name}.`));
       img.src = reader.result;
     };
-    reader.onerror = () => reject(Error('Could not read the selected file.'));
+    reader.onerror = () => reject(Error(`Could not read ${file.name}.`));
     reader.readAsDataURL(file);
   });
 
   async function optimize(file, maxSide = 1800) {
-    if (!file?.type?.startsWith('image/')) throw Error('Please choose an image file.');
-    if (file.size > MAX_SOURCE) throw Error('That image is too large. Choose an image under 12 MB.');
+    if (!file?.type?.startsWith('image/')) throw Error(`${file?.name || 'File'} is not an image.`);
+    if (file.size > MAX_SOURCE) throw Error(`${file.name} is over 12 MB.`);
     const { img } = await readImage(file);
     const width = img.naturalWidth || img.width;
     const height = img.naturalHeight || img.height;
@@ -51,16 +51,17 @@
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     let url = canvas.toDataURL('image/webp', .82);
     if (!url.startsWith('data:image/webp') || url.length > MAX_OUTPUT) url = canvas.toDataURL('image/jpeg', .80);
-    if (url.length > MAX_OUTPUT) throw Error('The optimized image is still too large. Please choose a smaller image.');
+    if (url.length > MAX_OUTPUT) throw Error(`${file.name} is still too large after optimization.`);
     return { url, width: canvas.width, height: canvas.height };
   }
 
-  const pick = () => new Promise(resolve => {
+  const pickMultiple = () => new Promise(resolve => {
     const input = document.createElement('input');
     input.type = 'file';
+    input.multiple = true;
     input.accept = 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml';
     input.style.display = 'none';
-    input.onchange = () => { resolve(input.files?.[0] || null); input.remove(); };
+    input.onchange = () => { resolve(Array.from(input.files || [])); input.remove(); };
     document.body.appendChild(input);
     input.click();
   });
@@ -73,7 +74,7 @@
     const card = document.createElement('article');
     card.className = 'media-card';
     card.dataset.media = media.id;
-    card.innerHTML = `<img src="${safe(media.url)}" alt="${safe(media.alt)}"><div class="media-meta"><div><b>${safe(media.alt) || 'Untitled image'}</b><small>image · just added</small></div><div class="media-actions"><button class="replace-media" type="button">Replace</button><button class="delete-media" type="button">Remove</button></div></div>`;
+    card.innerHTML = `<img src="${safe(media.url)}" alt="${safe(media.alt)}"><div class="media-meta"><div><b>${safe(media.alt) || 'Untitled image'}</b><small>${safe(media.type || 'image')} · just added</small></div><div class="media-actions"><button class="replace-media" type="button">Replace</button><button class="delete-media" type="button">Remove</button></div></div>`;
     card.querySelector('.replace-media').onclick = () => replaceMedia(media.id, card);
     card.querySelector('.delete-media').onclick = () => deleteMedia(media.id, card);
     grid.appendChild(card);
@@ -85,43 +86,61 @@
     preview.querySelector('.media-empty')?.remove();
     const tile = document.createElement('div');
     tile.className = 'gallery-tile';
+    tile.draggable = true;
     tile.dataset.mediaOrder = media.id;
     tile.innerHTML = `<img src="${safe(media.url)}" alt="${safe(media.alt)}"><span>${String(index).padStart(2,'0')}</span>`;
     preview.appendChild(tile);
   }
 
-  async function uploadGalleryImage() {
+  async function uploadGalleryImages() {
     const id = projectId();
     if (!id) return notify('Open a project first.');
-    const file = await pick();
-    if (!file) return;
+    const files = await pickMultiple();
+    if (!files.length) return;
+
     try {
       busy = true;
-      notify('Optimizing image…');
-      const { url, width, height } = await optimize(file);
-      const alt = file.name.replace(/\.[^.]+$/, '');
-      const d = await api({ action: 'saveMedia', projectId: id, url, alt, type: orientation(width, height), featured: false });
-      const media = d.media;
-      if (!media) throw Error('Image was saved but the media record was not returned.');
-      addTile(media, document.querySelectorAll('.gallery-tile').length + 1);
-      addCard(media);
-      notify(`Image added · ${orientation(width, height)} · dashboard stayed open.`);
-    } catch (e) {
-      notify(e.message);
+      let completed = 0;
+      let failed = 0;
+      const total = files.length;
+      notify(`Preparing ${total} image${total === 1 ? '' : 's'}…`);
+
+      for (const file of files) {
+        try {
+          notify(`Uploading ${completed + 1} of ${total} · ${file.name}`);
+          const { url, width, height } = await optimize(file);
+          const type = orientation(width, height);
+          const alt = file.name.replace(/\.[^.]+$/, '');
+          const d = await api({ action: 'saveMedia', projectId: id, url, alt, type, featured: false });
+          const media = d.media;
+          if (!media) throw Error('The server did not return the saved image.');
+          const index = document.querySelectorAll('.gallery-tile').length + 1;
+          addTile(media, index);
+          addCard(media);
+          completed += 1;
+        } catch (error) {
+          failed += 1;
+          console.error('Bluehaven media upload failed:', file.name, error);
+        }
+      }
+
+      if (failed) notify(`${completed} image${completed === 1 ? '' : 's'} added · ${failed} failed. The dashboard stayed open.`);
+      else notify(`${completed} image${completed === 1 ? '' : 's'} added · dashboard stayed open.`);
     } finally {
       busy = false;
     }
   }
 
   async function replaceMedia(id, card) {
-    const file = await pick();
+    const files = await pickMultiple();
+    const file = files[0];
     if (!file) return;
     try {
       busy = true;
       notify('Replacing image…');
       const { url, width, height } = await optimize(file);
       const alt = file.name.replace(/\.[^.]+$/, '');
-      await api({ action: 'saveMedia', id, projectId: projectId(), url, alt, type: orientation(width, height), order: 0, featured: false });
+      await api({ action: 'saveMedia', id, projectId: projectId(), url, alt, type: orientation(width, height), featured: false });
       const img = card?.querySelector('img');
       if (img) { img.src = url; img.alt = alt; }
       const tile = [...document.querySelectorAll('.gallery-tile')].find(x => x.dataset.mediaOrder === id);
@@ -150,7 +169,8 @@
   async function uploadLogo() {
     const id = projectId();
     if (!id) return notify('Open a project first.');
-    const file = await pick();
+    const files = await pickMultiple();
+    const file = files[0];
     if (!file) return;
     try {
       busy = true;
@@ -188,7 +208,9 @@
     const preview = document.querySelector('#project-logo-preview');
     if (!id || !preview) return;
     try {
-      const d = await (await fetch('/api/admin.js', { cache: 'no-store' })).json();
+      const r = await fetch('/api/admin.js', { cache: 'no-store' });
+      if (!r.ok) return;
+      const d = await r.json();
       const p = (d.projects || []).find(x => x.id === id);
       const url = p?.gallery_layout?.logoUrl;
       preview.innerHTML = url ? `<img src="${safe(url)}" alt="Project logo">` : '<span>NO LOGO</span>';
@@ -213,8 +235,8 @@
     if (add && !add.dataset.deviceUpload) {
       add.dataset.deviceUpload = '1';
       add.type = 'button';
-      add.textContent = '＋ Upload from device';
-      add.title = 'Upload an image from your computer or phone';
+      add.textContent = '＋ Upload images';
+      add.title = 'Upload multiple images from your computer or phone';
     }
   }
 
@@ -223,7 +245,7 @@
     if (add && !busy) {
       event.preventDefault();
       event.stopImmediatePropagation();
-      uploadGalleryImage();
+      uploadGalleryImages();
     }
   }, true);
 
