@@ -2,168 +2,21 @@
   const MAX_SOURCE = 12 * 1024 * 1024;
   const MAX_OUTPUT = 3_900_000;
   let busy = false;
-
-  const api = async payload => {
-    const r = await fetch('/api/admin.js', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok) throw Error(d.error || 'Upload failed');
-    return d;
-  };
-
-  const fileToImage = file => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(Error('That image could not be read.'));
-      img.src = reader.result;
-    };
-    reader.onerror = () => reject(Error('Could not read the selected file.'));
-    reader.readAsDataURL(file);
-  });
-
-  async function optimize(file, maxSide = 1800) {
-    if (!file || !file.type.startsWith('image/')) throw Error('Please choose an image file.');
-    if (file.size > MAX_SOURCE) throw Error('That image is too large. Choose an image under 12 MB.');
-    const img = await fileToImage(file);
-    const scale = Math.min(1, maxSide / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
-    canvas.height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
-    const ctx = canvas.getContext('2d', {alpha:true});
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    let data = canvas.toDataURL('image/webp', 0.84);
-    if (!data.startsWith('data:image/webp') || data.length > MAX_OUTPUT) data = canvas.toDataURL('image/jpeg', 0.82);
-    if (data.length > MAX_OUTPUT) throw Error('The optimized image is still too large. Please choose a smaller image.');
-    return data;
-  }
-
-  const pick = (accept='image/*') => new Promise(resolve => {
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = accept; input.style.display = 'none';
-    input.onchange = () => { resolve(input.files?.[0] || null); input.remove(); };
-    document.body.appendChild(input); input.click();
-  });
-
-  const selectedProjectId = () => document.querySelector('#project-form input[name="id"]')?.value || '';
-  const notify = message => {
-    let n = document.querySelector('#upload-toast');
-    if (!n) { n = document.createElement('div'); n.id='upload-toast'; document.body.appendChild(n); }
-    n.textContent = message; n.className='upload-toast show';
-    clearTimeout(n._timer); n._timer=setTimeout(()=>n.classList.remove('show'),2800);
-  };
-
-  function appendGalleryImage(url, alt='') {
-    const preview = document.querySelector('.gallery-preview');
-    if (preview) {
-      preview.querySelector('.media-empty')?.remove();
-      const tile = document.createElement('div');
-      tile.className = 'gallery-tile';
-      tile.dataset.mediaOrder = `pending-${Date.now()}`;
-      tile.innerHTML = `<img src="${url}" alt="${alt.replace(/"/g, '&quot;')}"><span>NEW</span>`;
-      preview.appendChild(tile);
-    }
-    const grid = document.querySelector('.media-grid');
-    if (grid) {
-      const card = document.createElement('article');
-      card.className = 'media-card';
-      card.innerHTML = `<img src="${url}" alt="${alt.replace(/"/g, '&quot;')}"><div class="media-meta"><div><b>${alt || 'Untitled asset'}</b><small>image · just added</small></div><span class="status">Saved</span></div>`;
-      grid.appendChild(card);
-    }
-  }
-
-  async function uploadGalleryImage() {
-    const projectId = selectedProjectId(); if (!projectId) return notify('Open a project first.');
-    const file = await pick(); if (!file) return;
-    try {
-      busy = true; notify('Optimizing image…');
-      const url = await optimize(file);
-      const alt = file.name.replace(/\.[^.]+$/, '');
-      await api({action:'saveMedia', projectId, url, alt, type:'image', order:9999, featured:false});
-      appendGalleryImage(url, alt);
-      notify('Image added. No page refresh needed.');
-    } catch (e) { notify(e.message); } finally { busy=false; }
-  }
-
-  async function replaceMedia(mediaId) {
-    const file = await pick(); if (!file) return;
-    try {
-      busy=true; notify('Replacing image…');
-      const url=await optimize(file);
-      const alt=file.name.replace(/\.[^.]+$/, '');
-      await api({action:'saveMedia', id:mediaId, projectId:selectedProjectId(), url, alt, type:'image', order:0, featured:false});
-      const card=document.querySelector(`.delete-media[data-media="${CSS.escape(mediaId)}"]`)?.closest('.media-card');
-      if(card){const img=card.querySelector('img');if(img){img.src=url;img.alt=alt;}}
-      const tile=document.querySelector(`.gallery-tile[data-media-order="${CSS.escape(mediaId)}"] img`);if(tile){tile.src=url;tile.alt=alt;}
-      notify('Image replaced.');
-    } catch(e){notify(e.message);} finally{busy=false;}
-  }
-
-  async function uploadLogo() {
-    const projectId=selectedProjectId(); if(!projectId)return notify('Open a project first.');
-    const file=await pick(); if(!file)return;
-    try{
-      busy=true; notify('Optimizing project logo…');
-      const url=await optimize(file, 1000);
-      await api({action:'saveProjectLogo', projectId, logoUrl:url});
-      const preview=document.querySelector('#project-logo-preview');
-      if(preview) preview.innerHTML=`<img src="${url}" alt="Project logo">`;
-      notify('Project logo updated.');
-    }catch(e){notify(e.message);}finally{busy=false;}
-  }
-
-  async function removeLogo() {
-    const projectId=selectedProjectId(); if(!projectId)return;
-    if(!confirm('Remove this project logo?'))return;
-    try{
-      await api({action:'removeProjectLogo',projectId});
-      const preview=document.querySelector('#project-logo-preview');
-      if(preview) preview.innerHTML='<span>NO LOGO</span>';
-      notify('Project logo removed.');
-    }catch(e){notify(e.message);}
-  }
-
-  async function loadLogoPreview(){
-    const id=selectedProjectId(); const preview=document.querySelector('#project-logo-preview'); if(!id||!preview)return;
-    try{const d=await (await fetch('/api/admin.js',{cache:'no-store'})).json();const p=(d.projects||[]).find(x=>x.id===id);const url=p?.gallery_layout?.logoUrl;
-      if(url) preview.innerHTML=`<img src="${url}" alt="Project logo">`; else preview.innerHTML='<span>NO LOGO</span>';
-    }catch{}
-  }
-
-  function enhance() {
-    const form=document.querySelector('#project-form');
-    if(form && !form.dataset.uploadEnhanced){
-      form.dataset.uploadEnhanced='1';
-      const section=document.createElement('section');
-      section.className='project-logo-uploader wide';
-      section.innerHTML='<div><span class="eyebrow">PROJECT BRANDING</span><h2>Project logo</h2><p class="muted">Upload a logo directly from your device. PNG, JPG and WebP are supported.</p></div><div class="logo-upload-row"><div class="logo-preview" id="project-logo-preview"><span>NO LOGO</span></div><div class="logo-actions"><button type="button" class="primary small" id="upload-project-logo">Upload logo</button><button type="button" class="secondary small" id="remove-project-logo">Remove</button></div></div>';
-      const gallery=form.parentElement.querySelector('.gallery-editor');
-      (gallery || form).before(section);
-      section.querySelector('#upload-project-logo').onclick=uploadLogo;
-      section.querySelector('#remove-project-logo').onclick=removeLogo;
-      loadLogoPreview();
-    }
-    const add=document.querySelector('#add-media');
-    if(add && !add.dataset.deviceUpload){
-      add.dataset.deviceUpload='1';
-      add.type='button';
-      add.textContent='＋ Upload from device';
-      add.title='Upload an image from your computer or phone';
-    }
-    document.querySelectorAll('.media-card').forEach(card=>{
-      if(card.querySelector('.replace-media'))return;
-      const id=card.querySelector('.delete-media')?.dataset.media; if(!id)return;
-      const actions=card.querySelector('.media-meta'); if(!actions)return;
-      const b=document.createElement('button'); b.type='button'; b.className='replace-media'; b.textContent='Replace'; b.onclick=()=>replaceMedia(id); actions.appendChild(b);
-    });
-  }
-
-  document.addEventListener('click', e => {
-    const add=e.target.closest('#add-media');
-    if(add && !busy){e.preventDefault();e.stopImmediatePropagation();uploadGalleryImage();}
-  }, true);
-
-  const observer=new MutationObserver(enhance);
-  observer.observe(document.documentElement,{subtree:true,childList:true});
+  const api = async payload => { const r=await fetch('/api/admin.js',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const d=await r.json().catch(()=>({})); if(!r.ok)throw Error(d.error||'Upload failed'); return d; };
+  const fileToImage=file=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(Error('That image could not be read.'));img.src=reader.result;};reader.onerror=()=>reject(Error('Could not read the selected file.'));reader.readAsDataURL(file);});
+  async function optimize(file,maxSide=1800){if(!file||!file.type.startsWith('image/'))throw Error('Please choose an image file.');if(file.size>MAX_SOURCE)throw Error('That image is too large. Choose an image under 12 MB.');const img=await fileToImage(file);const scale=Math.min(1,maxSide/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round((img.naturalWidth||img.width)*scale));canvas.height=Math.max(1,Math.round((img.naturalHeight||img.height)*scale));const ctx=canvas.getContext('2d',{alpha:true});ctx.drawImage(img,0,0,canvas.width,canvas.height);let data=canvas.toDataURL('image/webp',.84);if(!data.startsWith('data:image/webp')||data.length>MAX_OUTPUT)data=canvas.toDataURL('image/jpeg',.82);if(data.length>MAX_OUTPUT)throw Error('The optimized image is still too large. Please choose a smaller image.');return data;}
+  const pick=(accept='image/*')=>new Promise(resolve=>{const input=document.createElement('input');input.type='file';input.accept=accept;input.style.display='none';input.onchange=()=>{resolve(input.files?.[0]||null);input.remove();};document.body.appendChild(input);input.click();});
+  const selectedProjectId=()=>document.querySelector('#project-form input[name="id"]')?.value||'';
+  const notify=message=>{let n=document.querySelector('#upload-toast');if(!n){n=document.createElement('div');n.id='upload-toast';document.body.appendChild(n);}n.textContent=message;n.className='upload-toast show';clearTimeout(n._timer);n._timer=setTimeout(()=>n.classList.remove('show'),2800);};
+  const safe=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function appendGalleryImage(url,alt=''){const preview=document.querySelector('.gallery-preview');if(preview){preview.querySelector('.media-empty')?.remove();const tile=document.createElement('div');tile.className='gallery-tile';tile.dataset.mediaOrder=`pending-${Date.now()}`;tile.innerHTML=`<img src="${url}" alt="${safe(alt)}"><span>NEW</span>`;preview.appendChild(tile);}const grid=document.querySelector('.media-grid');if(grid){const card=document.createElement('article');card.className='media-card';card.innerHTML=`<img src="${url}" alt="${safe(alt)}"><div class="media-meta"><div><b>${safe(alt)||'Untitled asset'}</b><small>image · just added</small></div><span class="status">Saved</span></div>`;grid.appendChild(card);}}
+  async function uploadGalleryImage(){const projectId=selectedProjectId();if(!projectId)return notify('Open a project first.');const file=await pick();if(!file)return;try{busy=true;notify('Optimizing image…');const url=await optimize(file);const alt=file.name.replace(/\.[^.]+$/,'');await api({action:'saveMedia',projectId,url,alt,type:'image',order:9999,featured:false});appendGalleryImage(url,alt);notify('Image added — page stays open.');}catch(e){notify(e.message);}finally{busy=false;}}
+  async function replaceMedia(mediaId){const file=await pick();if(!file)return;try{busy=true;notify('Replacing image…');const url=await optimize(file);const alt=file.name.replace(/\.[^.]+$/,'');await api({action:'saveMedia',id:mediaId,projectId:selectedProjectId(),url,alt,type:'image',order:0,featured:false});const button=[...document.querySelectorAll('.delete-media')].find(b=>b.dataset.media===mediaId);const card=button?.closest('.media-card');const img=card?.querySelector('img');if(img){img.src=url;img.alt=alt;}const tile=[...document.querySelectorAll('.gallery-tile')].find(t=>t.dataset.mediaOrder===mediaId);const tileImg=tile?.querySelector('img');if(tileImg){tileImg.src=url;tileImg.alt=alt;}notify('Image replaced — page stays open.');}catch(e){notify(e.message);}finally{busy=false;}}
+  async function uploadLogo(){const projectId=selectedProjectId();if(!projectId)return notify('Open a project first.');const file=await pick();if(!file)return;try{busy=true;notify('Optimizing project logo…');const url=await optimize(file,1000);await api({action:'saveProjectLogo',projectId,logoUrl:url});const preview=document.querySelector('#project-logo-preview');if(preview)preview.innerHTML=`<img src="${url}" alt="Project logo">`;notify('Project logo updated — page stays open.');}catch(e){notify(e.message);}finally{busy=false;}}
+  async function removeLogo(){const projectId=selectedProjectId();if(!projectId||!confirm('Remove this project logo?'))return;try{await api({action:'removeProjectLogo',projectId});const preview=document.querySelector('#project-logo-preview');if(preview)preview.innerHTML='<span>NO LOGO</span>';notify('Project logo removed.');}catch(e){notify(e.message);}}
+  async function loadLogoPreview(){const id=selectedProjectId(),preview=document.querySelector('#project-logo-preview');if(!id||!preview)return;try{const d=await(await fetch('/api/admin.js',{cache:'no-store'})).json();const p=(d.projects||[]).find(x=>x.id===id);const url=p?.gallery_layout?.logoUrl;preview.innerHTML=url?`<img src="${url}" alt="Project logo">`:'<span>NO LOGO</span>';}catch{}}
+  function enhance(){const form=document.querySelector('#project-form');if(form&&!form.dataset.uploadEnhanced){form.dataset.uploadEnhanced='1';const section=document.createElement('section');section.className='project-logo-uploader wide';section.innerHTML='<div><span class="eyebrow">PROJECT BRANDING</span><h2>Project logo</h2><p class="muted">Upload a logo directly from your device.</p></div><div class="logo-upload-row"><div class="logo-preview" id="project-logo-preview"><span>NO LOGO</span></div><div class="logo-actions"><button type="button" class="primary small" id="upload-project-logo">Upload logo</button><button type="button" class="secondary small" id="remove-project-logo">Remove</button></div></div>';const gallery=form.parentElement.querySelector('.gallery-editor');(gallery||form).before(section);section.querySelector('#upload-project-logo').onclick=uploadLogo;section.querySelector('#remove-project-logo').onclick=removeLogo;loadLogoPreview();}const add=document.querySelector('#add-media');if(add&&!add.dataset.deviceUpload){add.dataset.deviceUpload='1';add.type='button';add.textContent='＋ Upload from device';add.title='Upload an image from your computer or phone';}document.querySelectorAll('.media-card').forEach(card=>{if(card.querySelector('.replace-media'))return;const id=card.querySelector('.delete-media')?.dataset.media;if(!id)return;const actions=card.querySelector('.media-meta');if(!actions)return;const b=document.createElement('button');b.type='button';b.className='replace-media';b.textContent='Replace';b.onclick=()=>replaceMedia(id);actions.appendChild(b);});}
+  document.addEventListener('click',e=>{const add=e.target.closest('#add-media');if(add&&!busy){e.preventDefault();e.stopImmediatePropagation();uploadGalleryImage();}},true);
+  new MutationObserver(enhance).observe(document.documentElement,{subtree:true,childList:true});
   enhance();
 })();
