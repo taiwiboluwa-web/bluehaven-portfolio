@@ -53,15 +53,35 @@
     clearTimeout(n._timer); n._timer=setTimeout(()=>n.classList.remove('show'),2800);
   };
 
+  function appendGalleryImage(url, alt='') {
+    const preview = document.querySelector('.gallery-preview');
+    if (preview) {
+      preview.querySelector('.media-empty')?.remove();
+      const tile = document.createElement('div');
+      tile.className = 'gallery-tile';
+      tile.dataset.mediaOrder = `pending-${Date.now()}`;
+      tile.innerHTML = `<img src="${url}" alt="${alt.replace(/"/g, '&quot;')}"><span>NEW</span>`;
+      preview.appendChild(tile);
+    }
+    const grid = document.querySelector('.media-grid');
+    if (grid) {
+      const card = document.createElement('article');
+      card.className = 'media-card';
+      card.innerHTML = `<img src="${url}" alt="${alt.replace(/"/g, '&quot;')}"><div class="media-meta"><div><b>${alt || 'Untitled asset'}</b><small>image · just added</small></div><span class="status">Saved</span></div>`;
+      grid.appendChild(card);
+    }
+  }
+
   async function uploadGalleryImage() {
     const projectId = selectedProjectId(); if (!projectId) return notify('Open a project first.');
     const file = await pick(); if (!file) return;
     try {
       busy = true; notify('Optimizing image…');
       const url = await optimize(file);
-      await api({action:'saveMedia', projectId, url, alt:file.name.replace(/\.[^.]+$/, ''), type:'image', order:9999, featured:false});
-      notify('Image uploaded from your device. Refreshing…');
-      setTimeout(()=>location.reload(),500);
+      const alt = file.name.replace(/\.[^.]+$/, '');
+      await api({action:'saveMedia', projectId, url, alt, type:'image', order:9999, featured:false});
+      appendGalleryImage(url, alt);
+      notify('Image added. No page refresh needed.');
     } catch (e) { notify(e.message); } finally { busy=false; }
   }
 
@@ -70,8 +90,12 @@
     try {
       busy=true; notify('Replacing image…');
       const url=await optimize(file);
-      await api({action:'saveMedia', id:mediaId, projectId:selectedProjectId(), url, alt:file.name.replace(/\.[^.]+$/, ''), type:'image', order:0, featured:false});
-      notify('Image replaced. Refreshing…'); setTimeout(()=>location.reload(),500);
+      const alt=file.name.replace(/\.[^.]+$/, '');
+      await api({action:'saveMedia', id:mediaId, projectId:selectedProjectId(), url, alt, type:'image', order:0, featured:false});
+      const card=document.querySelector(`.delete-media[data-media="${CSS.escape(mediaId)}"]`)?.closest('.media-card');
+      if(card){const img=card.querySelector('img');if(img){img.src=url;img.alt=alt;}}
+      const tile=document.querySelector(`.gallery-tile[data-media-order="${CSS.escape(mediaId)}"] img`);if(tile){tile.src=url;tile.alt=alt;}
+      notify('Image replaced.');
     } catch(e){notify(e.message);} finally{busy=false;}
   }
 
@@ -82,14 +106,28 @@
       busy=true; notify('Optimizing project logo…');
       const url=await optimize(file, 1000);
       await api({action:'saveProjectLogo', projectId, logoUrl:url});
-      notify('Project logo updated. Refreshing…'); setTimeout(()=>location.reload(),500);
+      const preview=document.querySelector('#project-logo-preview');
+      if(preview) preview.innerHTML=`<img src="${url}" alt="Project logo">`;
+      notify('Project logo updated.');
     }catch(e){notify(e.message);}finally{busy=false;}
   }
 
   async function removeLogo() {
     const projectId=selectedProjectId(); if(!projectId)return;
     if(!confirm('Remove this project logo?'))return;
-    try{await api({action:'removeProjectLogo',projectId});notify('Project logo removed. Refreshing…');setTimeout(()=>location.reload(),400);}catch(e){notify(e.message);}
+    try{
+      await api({action:'removeProjectLogo',projectId});
+      const preview=document.querySelector('#project-logo-preview');
+      if(preview) preview.innerHTML='<span>NO LOGO</span>';
+      notify('Project logo removed.');
+    }catch(e){notify(e.message);}
+  }
+
+  async function loadLogoPreview(){
+    const id=selectedProjectId(); const preview=document.querySelector('#project-logo-preview'); if(!id||!preview)return;
+    try{const d=await (await fetch('/api/admin.js',{cache:'no-store'})).json();const p=(d.projects||[]).find(x=>x.id===id);const url=p?.gallery_layout?.logoUrl;
+      if(url) preview.innerHTML=`<img src="${url}" alt="Project logo">`; else preview.innerHTML='<span>NO LOGO</span>';
+    }catch{}
   }
 
   function enhance() {
@@ -108,22 +146,16 @@
     const add=document.querySelector('#add-media');
     if(add && !add.dataset.deviceUpload){
       add.dataset.deviceUpload='1';
+      add.type='button';
       add.textContent='＋ Upload from device';
       add.title='Upload an image from your computer or phone';
     }
     document.querySelectorAll('.media-card').forEach(card=>{
       if(card.querySelector('.replace-media'))return;
-      const img=card.querySelector('img'); const id=card.querySelector('.delete-media')?.dataset.media; if(!id)return;
+      const id=card.querySelector('.delete-media')?.dataset.media; if(!id)return;
       const actions=card.querySelector('.media-meta'); if(!actions)return;
       const b=document.createElement('button'); b.type='button'; b.className='replace-media'; b.textContent='Replace'; b.onclick=()=>replaceMedia(id); actions.appendChild(b);
     });
-  }
-
-  async function loadLogoPreview(){
-    const id=selectedProjectId(); const preview=document.querySelector('#project-logo-preview'); if(!id||!preview)return;
-    try{const d=await (await fetch('/api/admin.js')).json();const p=(d.projects||[]).find(x=>x.id===id);const url=p?.gallery_layout?.logoUrl;
-      if(url) preview.innerHTML=`<img src="${url}" alt="Project logo">`; else preview.innerHTML='<span>NO LOGO</span>';
-    }catch{}
   }
 
   document.addEventListener('click', e => {
