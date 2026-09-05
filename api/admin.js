@@ -28,7 +28,7 @@ export default async function handler(req,res){
   try{
     if(req.method==='GET'){
       const [projects,sections,settings]=await Promise.all([
-        sql`SELECT p.id,p.slug,p.name,p.category,p.description,p.website_url,p.visible,p.sort_order,COALESCE(json_agg(json_build_object('id',m.id,'url',m.storage_url,'storageKey',m.storage_key,'alt',m.alt_text,'type',m.media_type,'order',m.sort_order,'featured',m.featured) ORDER BY m.sort_order,m.created_at) FILTER (WHERE m.id IS NOT NULL),'[]'::json) AS media FROM portfolio_projects p LEFT JOIN portfolio_media m ON m.project_id=p.id GROUP BY p.id ORDER BY p.sort_order,p.created_at`,
+        sql`SELECT p.id,p.slug,p.name,p.category,p.description,p.website_url,p.visible,p.sort_order,p.gallery_layout,COALESCE(json_agg(json_build_object('id',m.id,'url',m.storage_url,'storageKey',m.storage_key,'alt',m.alt_text,'type',m.media_type,'order',m.sort_order,'featured',m.featured) ORDER BY m.sort_order,m.created_at) FILTER (WHERE m.id IS NOT NULL),'[]'::json) AS media FROM portfolio_projects p LEFT JOIN portfolio_media m ON m.project_id=p.id GROUP BY p.id ORDER BY p.sort_order,p.created_at`,
         sql`SELECT id,section_key,label,visible,sort_order,layout,content FROM site_sections ORDER BY sort_order,label`,
         sql`SELECT setting_key,setting_value FROM site_settings ORDER BY setting_key`,
       ]);
@@ -37,8 +37,9 @@ export default async function handler(req,res){
     const data=await body(req);
     if(data.action==='saveProject'){
       if(!data.name||!data.slug)return res.status(400).json({error:'Project name and slug are required.'});
-      if(data.id) await sql`UPDATE portfolio_projects SET name=${data.name},slug=${data.slug},category=${data.category||null},description=${data.description||null},website_url=${data.websiteUrl||null},visible=${data.visible!==false},sort_order=${Number(data.sortOrder)||0},updated_at=now() WHERE id=${data.id}`;
-      else await sql`INSERT INTO portfolio_projects(slug,name,category,description,website_url,visible,sort_order) VALUES(${data.slug},${data.name},${data.category||null},${data.description||null},${data.websiteUrl||null},${data.visible!==false},${Number(data.sortOrder)||0})`;
+      const gallery=data.galleryLayout || {type:'grid',columns:3,gap:'comfortable',aspectRatio:'landscape',featured:'first'};
+      if(data.id) await sql`UPDATE portfolio_projects SET name=${data.name},slug=${data.slug},category=${data.category||null},description=${data.description||null},website_url=${data.websiteUrl||null},visible=${data.visible!==false},sort_order=${Number(data.sortOrder)||0},gallery_layout=${gallery},updated_at=now() WHERE id=${data.id}`;
+      else await sql`INSERT INTO portfolio_projects(slug,name,category,description,website_url,visible,sort_order,gallery_layout) VALUES(${data.slug},${data.name},${data.category||null},${data.description||null},${data.websiteUrl||null},${data.visible!==false},${Number(data.sortOrder)||0},${gallery})`;
       return res.status(200).json({ok:true});
     }
     if(data.action==='deleteProject'){await sql`DELETE FROM portfolio_projects WHERE id=${data.id}`;return res.status(200).json({ok:true});}
