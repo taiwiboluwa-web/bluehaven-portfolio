@@ -1,6 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
-import { safeSlug, validateUpload } from '../src/lib/adminValidation';
+import { safeSlug, validateUpload } from '../src/lib/adminValidation.js';
 
 const sql=()=>{if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL is not configured');return neon(process.env.DATABASE_URL)};
 const sign=(v:string)=>createHmac('sha256',process.env.ADMIN_PASSWORD||'').update(v).digest('base64url');
