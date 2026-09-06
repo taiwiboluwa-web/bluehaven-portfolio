@@ -11,11 +11,16 @@ export default async function handler(req:Req,res:Res){
   const rows=await sql`SELECT file_data,mime_type,storage_url,storage_key FROM portfolio_media WHERE id=${id} LIMIT 1` as any[];
   const row=rows[0];
   if(!row)return res.status(404).end('Not found');
-  if(String(row.storage_key||'').startsWith('portfolio/')&&row.storage_url){
+  if(row.file_data){
+   const data=row.file_data instanceof Uint8Array?row.file_data:Buffer.from(row.file_data,'base64');
+   res.status(200).setHeader('content-type',row.mime_type||'application/octet-stream');
+   res.setHeader('cache-control','public, max-age=31536000, immutable');
+   res.setHeader('x-content-type-options','nosniff');
+   return res.end(data);
+  }
+  if(row.storage_url){
    res.status(302).setHeader('location',row.storage_url);res.setHeader('cache-control','public, max-age=31536000, immutable');return res.end();
   }
-  if(!row.file_data)return res.status(404).end('Not found');
-  const data=row.file_data instanceof Uint8Array?row.file_data:Buffer.from(row.file_data,'base64');
-  res.status(200).setHeader('content-type',row.mime_type||'application/octet-stream');res.setHeader('cache-control','public, max-age=31536000, immutable');return res.end(data);
+  return res.status(404).end('Not found');
  }catch(error){console.error('BlueHaven media API error:',error);return res.status(404).end('Not found')}
 }
