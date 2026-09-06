@@ -1,11 +1,13 @@
+# BlueHaven Studios website
 
-  # original bluehaven studios web beyond limitssite
+BlueHaven Studios portfolio website with a database-backed Admin control center.
 
-  This is a code bundle for original bluehaven studios web beyond limitssite. The original project is available at https://www.figma.com/design/P7vLAkMjZoiIauQByaYKfJ/original-bluehaven-studios-web-beyond-limitssite.
+## Admin portfolio controls
 
-  ## Running the code
+The `/admin` area controls project visibility, project order, portrait/landscape/square presentation, project metadata, and multiple portfolio images. New uploads are stored in Vercel Blob while existing legacy media remains supported.
 
-  Run `npm i` to install the dependencies.
+## Running locally
 
-  Run `npm run dev` to start the development server.
-  
+Run `npm i` to install dependencies.
+
+Run `npm run dev` to start the development server.
