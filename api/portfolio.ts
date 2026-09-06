@@ -2,7 +2,6 @@ import { neon } from '@neondatabase/serverless';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { safeSlug, validateUpload } from '../src/lib/adminValidation';
 
-const COOKIE='bluehaven_admin';
 const sql=()=>{if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL is not configured');return neon(process.env.DATABASE_URL)};
 const sign=(v:string)=>createHmac('sha256',process.env.ADMIN_PASSWORD||'').update(v).digest('base64url');
 function auth(req:Request){const raw=req.headers.get('cookie')?.match(/(?:^|;\s*)bluehaven_admin=([^;]+)/)?.[1];if(!raw||!process.env.ADMIN_PASSWORD)return false;const p=raw.split('.');if(p.length!==3)return false;try{return timingSafeEqual(Buffer.from(p[2]),Buffer.from(sign(`${p[0]}.${p[1]}`)))}catch{return false}}
@@ -11,7 +10,7 @@ const json=(d:unknown,s=200)=>new Response(JSON.stringify(d),{status:s,headers:{
 async function visible(db:ReturnType<typeof neon>){
  const projects=await db`SELECT id,slug,name,category,description,website_url,visible,sort_order,created_at,updated_at FROM portfolio_projects WHERE visible=true ORDER BY sort_order,created_at DESC`;
  const ids=(projects as any[]).map(p=>p.id);const media=ids.length?await db`SELECT id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,file_name,mime_type FROM portfolio_media WHERE project_id=ANY(${ids}) ORDER BY sort_order,created_at`:[];
- return (projects as any[]).map(p=>({...p,media:(media as any[]).filter(m=>m.project_id===p.id).map(m=>({...m,storage_url:m.file_name?`/api/media?id=${m.id}`:m.storage_url}))}));
+ return (projects as any[]).map(p=>({...p,media:(media as any[]).filter(m=>m.project_id===p.id).map(m=>({...m,storage_url:m.file_name?`/api/media?id=${m.id}`:m.storage_url}))})).filter(p=>p.media.some((m:any)=>m.file_name));
 }
 
 export default async function handler(req:Request){
