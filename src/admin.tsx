@@ -38,6 +38,6 @@ window.fetch=async (input:RequestInfo|URL,init?:RequestInit):Promise<Response>=>
  return nativeFetch(input,init);
 };
 
-import Admin from './app/Admin';
-
-createRoot(document.getElementById('admin-root')!).render(<Admin />);
+import('./app/Admin').then(({default:Admin})=>{
+ createRoot(document.getElementById('admin-root')!).render(<Admin />);
+});
