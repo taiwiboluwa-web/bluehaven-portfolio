@@ -1,40 +1,145 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
-import { ArrowLeft, ImagePlus, LogOut, Save, Trash2 } from 'lucide-react';
+import { ArrowLeft, LogOut, Plus, Save, Trash2, ImagePlus, Eye, EyeOff } from 'lucide-react';
+import './admin.css';
+
+type Media = { id: string; url: string; alt?: string; featured?: boolean; storageKey?: string; order?: number };
+type Project = { id: string; slug: string; name: string; category?: string; description?: string; website_url?: string; visible: boolean; sort_order: number; media: Media[] };
+
+type CmsResponse = { projects: Project[]; sections: any[]; settings: Record<string, unknown> };
+
+const emptyForm = { slug: '', name: '', category: '', description: '', websiteUrl: '', visible: true, sortOrder: 0 };
 
 export function AdminDashboard() {
-  const [authenticated, setAuthenticated] = useState(false);
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [password, setPassword] = useState('');
-  const [projects, setProjects] = useState<any[]>([]);
-  const [selected, setSelected] = useState<any | null>(null);
-  const [form, setForm] = useState({ slug: '', name: '', category: '', description: '', websiteUrl: '', visible: true, sortOrder: 0 });
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selected, setSelected] = useState<Project | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [newImage, setNewImage] = useState('');
   const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const load = async () => {
-    const response = await fetch('/api/admin-media');
-    if (response.status === 401) return setAuthenticated(false);
-    if (response.ok) setProjects(await response.json());
+    const response = await fetch('/api/admin-media?_=' + Date.now(), { cache: 'no-store' });
+    if (response.status === 401) { setAuthenticated(false); return; }
+    if (!response.ok) { setMessage('Could not load the CMS.'); return; }
+    const data: CmsResponse = await response.json();
+    setProjects(data.projects || []);
+    setAuthenticated(true);
+    if (selected) setSelected((data.projects || []).find(p => p.id === selected.id) || null);
   };
 
   useEffect(() => { load(); }, []);
 
   const login = async () => {
-    const response = await fetch('/api/admin-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
-    if (response.ok) { setAuthenticated(true); setPassword(''); load(); } else setMessage('Incorrect admin password.');
+    setBusy(true); setMessage('');
+    try {
+      const response = await fetch('/api/admin-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+      if (!response.ok) { setMessage('Incorrect admin password.'); return; }
+      setPassword(''); await load();
+    } finally { setBusy(false); }
   };
 
-  const choose = (project: any) => {
+  const choose = (project: Project) => {
     setSelected(project);
-    setForm({ slug: project.slug, name: project.name, category: project.category || '', description: project.description || '', websiteUrl: project.website_url || '', visible: project.visible, sortOrder: project.sort_order });
+    setForm({ slug: project.slug || '', name: project.name || '', category: project.category || '', description: project.description || '', websiteUrl: project.website_url || '', visible: project.visible !== false, sortOrder: project.sort_order || 0 });
     setMessage('');
   };
 
-  const save = async () => {
-    const response = await fetch('/api/admin-media', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
-    if (response.ok) { setMessage('Saved to Neon.'); await load(); } else setMessage('Could not save changes.');
+  const saveProject = async () => {
+    setBusy(true); setMessage('');
+    try {
+      const response = await fetch('/api/admin-media', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'saveProject', id: selected?.id, ...form }) });
+      const data = await response.json();
+      if (!response.ok) { setMessage(data.error || 'Could not save project.'); return; }
+      setMessage('Saved to Neon.'); await load();
+    } finally { setBusy(false); }
   };
 
-  if (!authenticated) return <main className='min-h-screen bg-[#080808] text-white grid place-items-center p-6'><div className='w-full max-w-md border border-white/10 rounded-3xl p-8 bg-white/[0.03] shadow-2xl'><p className='text-xs uppercase tracking-[0.3em] text-white/40 mb-3'>Bluehaven Studios</p><h1 className='text-4xl font-semibold tracking-tight mb-3'>Studio Admin</h1><p className='text-white/50 mb-8'>Manage portfolio content without touching the codebase.</p><input value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && login()} type='password' placeholder='Admin password' className='w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 outline-none focus:border-white/30' /><button onClick={login} className='mt-3 w-full rounded-xl bg-white text-black font-semibold py-3 hover:bg-white/90'>Enter dashboard</button>{message && <p className='mt-4 text-sm text-red-300'>{message}</p>}</div></main>;
+  const createProject = () => {
+    setSelected(null); setForm({ ...emptyForm, sortOrder: projects.length * 10 }); setMessage('Fill in the new project and save it.');
+  };
 
-  return <main className='min-h-screen bg-[#080808] text-white p-4 md:p-8'><div className='max-w-7xl mx-auto'><header className='flex flex-wrap items-center justify-between gap-4 mb-8'><div><p className='text-xs uppercase tracking-[0.3em] text-white/40'>Bluehaven Studios</p><h1 className='text-3xl md:text-5xl font-semibold tracking-tight'>Portfolio Control</h1></div><div className='flex gap-2'><button onClick={() => window.location.href = '/'} className='border border-white/10 rounded-xl px-4 py-2 flex items-center gap-2'><ArrowLeft size={16}/> Site</button><button onClick={() => { document.cookie = 'bluehaven_admin_session=; Max-Age=0; Path=/'; location.reload(); }} className='border border-white/10 rounded-xl px-4 py-2 flex items-center gap-2'><LogOut size={16}/> Logout</button></div></header><div className='grid lg:grid-cols-[320px_1fr] gap-5'><aside className='border border-white/10 rounded-2xl p-3 bg-white/[0.02] h-fit'><div className='flex items-center justify-between px-2 py-2 mb-2'><span className='text-sm text-white/50'>Projects</span><ImagePlus size={17}/></div>{projects.map(project => <button key={project.id} onClick={() => choose(project)} className={`w-full text-left rounded-xl px-3 py-3 mb-1 transition ${selected?.id === project.id ? 'bg-white text-black' : 'hover:bg-white/5'}`}><div className='font-medium'>{project.name}</div><div className='text-xs opacity-50'>{project.category || project.slug}</div></button>)}</aside><section className='border border-white/10 rounded-2xl p-5 md:p-8 bg-white/[0.02]'>{selected ? <><div className='flex items-start justify-between gap-4 mb-8'><div><p className='text-xs uppercase tracking-[0.25em] text-white/40'>Edit project</p><h2 className='text-2xl font-semibold'>{selected.name}</h2></div><button onClick={save} className='rounded-xl bg-white text-black px-4 py-2 font-semibold flex items-center gap-2'><Save size={16}/> Save</button></div><div className='grid md:grid-cols-2 gap-4'>{[['name','Project name'],['slug','Slug'],['category','Category'],['websiteUrl','Website URL']].map(([key,label]) => <label key={key} className='text-sm text-white/50'>{label}<input value={(form as any)[key]} onChange={e => setForm({...form, [key]: e.target.value})} className='mt-2 w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white outline-none focus:border-white/30'/></label>)}<label className='text-sm text-white/50 md:col-span-2'>Description<textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={5} className='mt-2 w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-white outline-none focus:border-white/30'/></label></div><div className='mt-8 border-t border-white/10 pt-6'><h3 className='font-semibold mb-3'>Current media</h3><div className='grid sm:grid-cols-2 xl:grid-cols-3 gap-3'>{(selected.media || []).map((item: any) => <div key={item.id} className='aspect-video rounded-xl overflow-hidden bg-white/5 border border-white/10'><img src={item.url} alt={item.alt || ''} className='w-full h-full object-cover'/></div>)}</div><p className='mt-4 text-sm text-white/40'>Media records are stored in Neon. The storage layer can be connected separately for direct file uploads.</p></div>{message && <motion.p initial={{opacity:0}} animate={{opacity:1}} className='mt-5 text-sm text-emerald-300'>{message}</motion.p>}</> : <div className='min-h-[420px] grid place-items-center text-center'><div><Trash2 className='mx-auto mb-4 text-white/20' size={36}/><h2 className='text-xl font-semibold'>Select a project</h2><p className='text-white/40 mt-2'>Choose a portfolio project to edit its content.</p></div></div>}</section></div></div></main>;
+  const deleteProject = async () => {
+    if (!selected || !window.confirm(`Delete “${selected.name}” and all of its media records?`)) return;
+    setBusy(true);
+    try {
+      const response = await fetch('/api/admin-media', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'deleteProject', id: selected.id }) });
+      if (!response.ok) { setMessage('Could not delete project.'); return; }
+      setSelected(null); setForm(emptyForm); setMessage('Project deleted.'); await load();
+    } finally { setBusy(false); }
+  };
+
+  const addImage = async () => {
+    if (!selected || !newImage.trim()) return;
+    setBusy(true);
+    try {
+      const response = await fetch('/api/admin-media', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'saveMedia', projectId: selected.id, url: newImage.trim(), alt: selected.name, type: 'image' }) });
+      const data = await response.json();
+      if (!response.ok) { setMessage(data.error || 'Could not add image.'); return; }
+      setNewImage(''); setMessage('Image record added.'); await load();
+    } finally { setBusy(false); }
+  };
+
+  const deleteImage = async (id: string) => {
+    if (!window.confirm('Delete this image record?')) return;
+    setBusy(true);
+    try {
+      await fetch('/api/admin-media', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'deleteMedia', id }) });
+      await load();
+    } finally { setBusy(false); }
+  };
+
+  if (authenticated === null) return <main className="admin-shell admin-loading">Loading Studio Admin…</main>;
+  if (!authenticated) return (
+    <main className="admin-shell admin-login">
+      <form className="admin-login-panel" onSubmit={e => { e.preventDefault(); login(); }}>
+        <span className="admin-eyebrow">BLUEHAVEN STUDIOS / PRIVATE</span>
+        <h1>Studio Admin</h1>
+        <p>Manage projects and media without touching the codebase.</p>
+        <input autoFocus type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Admin password" />
+        <button disabled={busy} type="submit">{busy ? 'Checking…' : 'Enter dashboard'}</button>
+        {message && <small className="admin-error">{message}</small>}
+      </form>
+    </main>
+  );
+
+  return (
+    <main className="admin-shell">
+      <header className="admin-topbar">
+        <div><span className="admin-eyebrow">BLUEHAVEN STUDIOS / CMS</span><h1>Portfolio Control</h1></div>
+        <div className="admin-actions"><a href="/" className="admin-ghost"><ArrowLeft size={16} /> Site</a><button className="admin-ghost" onClick={async () => { await fetch('/api/admin-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) }); document.cookie = 'bluehaven_admin_session=; Max-Age=0; Path=/'; location.reload(); }}><LogOut size={16} /> Logout</button></div>
+      </header>
+
+      <div className="admin-layout">
+        <aside className="admin-sidebar">
+          <div className="admin-sidebar-head"><span>Projects</span><button onClick={createProject} aria-label="Create project"><Plus size={17} /></button></div>
+          {projects.map(project => <button key={project.id} className={`admin-project ${selected?.id === project.id ? 'active' : ''}`} onClick={() => choose(project)}><span>{project.name}</span><small>{project.category || 'Uncategorised'} · {project.media?.length || 0} media</small></button>)}
+          {!projects.length && <p className="admin-muted">No projects yet.</p>}
+        </aside>
+
+        <section className="admin-editor">
+          <div className="admin-editor-head"><div><span className="admin-eyebrow">{selected ? 'EDIT PROJECT' : 'NEW PROJECT'}</span><h2>{selected?.name || 'Create a project'}</h2></div><div className="admin-actions">{selected && <button className="admin-danger" disabled={busy} onClick={deleteProject}><Trash2 size={16} /> Delete</button>}<button className="admin-save" disabled={busy} onClick={saveProject}><Save size={16} /> {busy ? 'Saving…' : 'Save'}</button></div></div>
+
+          <div className="admin-form-grid">
+            <label>Project name<input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label>
+            <label>Slug<input value={form.slug} onChange={e => setForm({ ...form, slug: e.target.value })} /></label>
+            <label>Category<input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} /></label>
+            <label>Website URL<input value={form.websiteUrl} onChange={e => setForm({ ...form, websiteUrl: e.target.value })} placeholder="https://…" /></label>
+            <label className="admin-wide">Description<textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={6} /></label>
+            <label className="admin-toggle"><input type="checkbox" checked={form.visible} onChange={e => setForm({ ...form, visible: e.target.checked })} /> {form.visible ? <Eye size={16} /> : <EyeOff size={16} />} Visible on website</label>
+          </div>
+
+          {selected && <section className="admin-media-section">
+            <div className="admin-media-head"><div><span className="admin-eyebrow">MEDIA</span><h3>{selected.media?.length || 0} images</h3></div></div>
+            <div className="admin-add-media"><ImagePlus size={18} /><input value={newImage} onChange={e => setNewImage(e.target.value)} placeholder="Paste an HTTPS image URL" onKeyDown={e => e.key === 'Enter' && addImage()} /><button onClick={addImage} disabled={busy || !newImage.trim()}>Add image</button></div>
+            <div className="admin-media-grid">{(selected.media || []).map(item => <figure key={item.id}><img src={item.url} alt={item.alt || selected.name} /><button aria-label="Delete image" onClick={() => deleteImage(item.id)}><Trash2 size={15} /></button></figure>)}</div>
+            {!selected.media?.length && <div className="admin-empty">No media records. Add an HTTPS image URL above.</div>}
+          </section>}
+
+          {message && <p className="admin-status">{message}</p>}
+        </section>
+      </div>
+    </main>
+  );
 }
