@@ -1,11 +1,4 @@
 import { neon } from '@neondatabase/serverless';
 
-export default async function handler(req:Request){
- const id=new URL(req.url).searchParams.get('id');
- if(!id||!process.env.DATABASE_URL)return new Response('Not found',{status:404});
- try{
-  const sql=neon(process.env.DATABASE_URL);const rows=await sql`SELECT file_data,mime_type FROM portfolio_media WHERE id=${id} LIMIT 1` as any[];const row=rows[0];if(!row?.file_data)return new Response('Not found',{status:404});
-  const data=row.file_data instanceof Uint8Array?row.file_data:Buffer.from(row.file_data,'base64');
-  return new Response(data,{headers:{'content-type':row.mime_type||'application/octet-stream','cache-control':'public, max-age=31536000, immutable'}});
- }catch{return new Response('Not found',{status:404})}
-}
+type Req={url?:string}; type Res={status:(n:number)=>Res;setHeader:(n:string,v:string)=>Res;end:(d?:unknown)=>void};
+export default async function handler(req:Req,res:Res){try{const id=new URL(req.url||'/','https://bluehaven.local').searchParams.get('id');if(!id||!process.env.DATABASE_URL)return res.status(404).end('Not found');const sql=neon(process.env.DATABASE_URL);const rows=await sql`SELECT file_data,mime_type FROM portfolio_media WHERE id=${id} LIMIT 1` as any[];const row=rows[0];if(!row?.file_data)return res.status(404).end('Not found');const data=row.file_data instanceof Uint8Array?row.file_data:Buffer.from(row.file_data,'base64');res.status(200).setHeader('content-type',row.mime_type||'application/octet-stream');res.setHeader('cache-control','public, max-age=31536000, immutable');return res.end(data)}catch(error){console.error('BlueHaven media API error:',error);return res.status(404).end('Not found')}}
