@@ -1,141 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bluehaven Studios</title>
-    <style>html,body{height:100%;margin:0}#root{height:100%}.bluehaven-cms-gallery{transition:grid-template-columns .35s ease,gap .35s ease}.bluehaven-cms-gallery img{transition:transform .35s ease,opacity .35s ease}.bluehaven-cms-gallery.cms-horizontal{display:flex!important;overflow-x:auto!important;grid-template-columns:none!important;scroll-snap-type:x mandatory}.bluehaven-cms-gallery.cms-horizontal>div{flex:0 0 min(520px,78vw);scroll-snap-align:start}.bluehaven-cms-gallery.cms-masonry{display:block!important;column-gap:var(--cms-gap,16px)!important;column-count:var(--cms-cols,3)!important}.bluehaven-cms-gallery.cms-masonry>div{break-inside:avoid;margin-bottom:var(--cms-gap,16px)}.bluehaven-cms-gallery.cms-bento{grid-template-columns:repeat(var(--cms-cols,3),minmax(0,1fr))!important}.bluehaven-cms-gallery.cms-bento>div:first-child{grid-column:span 2;grid-row:span 2}.bluehaven-cms-gallery.cms-bento>div:nth-child(4){grid-column:span 2}.bluehaven-cms-gallery.cms-featured{grid-template-columns:repeat(var(--cms-cols,3),minmax(0,1fr))!important}.bluehaven-cms-gallery.cms-featured>div:first-child{grid-column:1/-1}.bluehaven-cms-gallery.cms-featured>div:first-child img{aspect-ratio:21/9;object-fit:cover}.bluehaven-cms-gallery.cms-square img{aspect-ratio:1!important;object-fit:cover}.bluehaven-cms-gallery.cms-portrait img{aspect-ratio:4/5!important;object-fit:cover}.bluehaven-cms-gallery.cms-landscape img{aspect-ratio:4/3!important;object-fit:cover}.bluehaven-cms-gallery.cms-wide img{aspect-ratio:16/9!important;object-fit:cover}.bluehaven-cms-gallery.cms-natural img{aspect-ratio:auto!important;object-fit:contain!important;height:auto!important}.bluehaven-cms-project-logo{position:absolute;z-index:20;left:18px;top:18px;width:72px;height:72px;object-fit:contain;padding:8px;box-sizing:border-box;border-radius:14px;background:rgba(255,255,255,.94);box-shadow:0 10px 30px rgba(0,0,0,.16);pointer-events:none}.bluehaven-cms-logo-host{position:relative!important}</style>
+    <title>Bluhaven studios</title>
+    <meta name="description" content="Showcasing creative design services, this platform helps brands enhance their identity through custom visuals, including logos, book covers, and merchandise." />
+    <meta name="robots" content="noindex, nofollow" />
+    <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
+    
   </head>
+
   <body>
+    
     <div id="root"></div>
-    <script>
-      (() => {
-        let applying = false;
-        let timer = null;
-        const schedule = (delay = 120) => {
-          clearTimeout(timer);
-          timer = setTimeout(() => applyCms(), delay);
-        };
-        const addAdminLink = () => {
-          const footer = document.querySelector('footer');
-          if (!footer || footer.querySelector('[data-bluehaven-admin-link]')) return;
-          const terms = Array.from(footer.querySelectorAll('a')).find(a => a.textContent?.trim().toLowerCase() === 'terms of service');
-          if (!terms?.parentElement) return;
-          const admin = document.createElement('a');
-          admin.href = '/admin';
-          admin.textContent = 'Admin';
-          admin.setAttribute('aria-label', 'Bluehaven Studios Admin');
-          admin.dataset.bluehavenAdminLink = 'true';
-          admin.style.cssText = 'color:#4b5563;text-decoration:none;font-size:10px;line-height:1.25rem;transition:color .2s ease';
-          admin.onmouseenter = () => admin.style.color = '#d1d5db';
-          admin.onmouseleave = () => admin.style.color = '#4b5563';
-          terms.parentElement.insertAdjacentElement('afterend', admin);
-        };
-        const sectionFor = key => {
-          const direct = document.getElementById(key);
-          if (direct) return direct.closest('section') || direct;
-          const needles = { hero:['bluehaven studios'], showreel:['featured showreel'], carousel:['brand identity design','motion graphics','social media content'], services:['what we do'], process:['the process'], portfolio:['our recent work','restaurants & food'], reviews:['reviews','what clients say'], expertise:['our expertise'], founder:['founder','creative director'], contact:["let's talk",'ready to get started','contact us','get in touch'] }[key] || [];
-          return Array.from(document.querySelectorAll('section')).find(s => needles.some(n => (s.textContent || '').toLowerCase().includes(n))) || null;
-        };
-        const projectHostFor = (project, section) => {
-          const name = project.name.toLowerCase();
-          const candidates = Array.from(section.querySelectorAll('article,li,[role="button"],a,div')).filter(el => {
-            const text = (el.textContent || '').toLowerCase();
-            return text.includes(name) && el.querySelector('img');
-          });
-          return candidates.sort((a,b) => a.querySelectorAll('*').length - b.querySelectorAll('*').length)[0] || section;
-        };
-        const applyProjectLogos = projects => {
-          projects.forEach(project => {
-            const logo = project.gallery_layout?.logoUrl;
-            if (!logo) return;
-            const matchingSections = Array.from(document.querySelectorAll('section')).filter(s => (s.textContent || '').toLowerCase().includes(project.name.toLowerCase()));
-            matchingSections.forEach(section => {
-              const host = projectHostFor(project, section);
-              host.classList.add('bluehaven-cms-logo-host');
-              let badge = host.querySelector(`[data-bluehaven-project-logo="${CSS.escape(project.id)}"]`);
-              if (!badge) {
-                badge = document.createElement('img');
-                badge.dataset.bluehavenProjectLogo = project.id;
-                badge.className = 'bluehaven-cms-project-logo';
-                badge.alt = `${project.name} logo`;
-                host.appendChild(badge);
-              }
-              if (badge.src !== logo) badge.src = logo;
-            });
-          });
-        };
-        const applyProjectGalleries = projects => {
-          projects.forEach(project => {
-            const needle = project.name.toLowerCase();
-            const sections = Array.from(document.querySelectorAll('section')).filter(s => (s.textContent || '').toLowerCase().includes(needle));
-            const g = { type:'grid', columns:3, gap:'comfortable', aspectRatio:'natural', ...(project.gallery_layout || {}) };
-            const gap = g.gap === 'tight' ? 6 : g.gap === 'airy' ? 24 : 14;
-            sections.forEach(section => {
-              const grids = Array.from(section.querySelectorAll('div')).filter(el => el.querySelectorAll(':scope > div img').length >= 2 || el.querySelectorAll(':scope > img').length >= 2);
-              grids.forEach(grid => {
-                grid.classList.add('bluehaven-cms-gallery', `cms-${g.type}`, `cms-${g.aspectRatio}`);
-                grid.style.setProperty('--cms-cols', String(g.columns || 3));
-                grid.style.setProperty('--cms-gap', `${gap}px`);
-                if (g.type === 'grid' || g.type === 'bento' || g.type === 'featured') {
-                  grid.style.gridTemplateColumns = `repeat(${g.columns || 3},minmax(0,1fr))`;
-                  grid.style.gap = `${gap}px`;
-                }
-              });
-            });
-          });
-        };
-        const applyCms = async () => {
-          if (applying) return;
-          applying = true;
-          try {
-            const r = await fetch('/api/portfolio', { cache:'no-store' });
-            if (!r.ok) return;
-            const cms = await r.json();
-            const sections = Array.isArray(cms.sections) ? cms.sections : [];
-            const mapped = [];
-            sections.forEach(s => {
-              const el = sectionFor(s.section_key);
-              if (!el) return;
-              el.dataset.bluehavenSection = s.section_key;
-              const l = s.layout || {};
-              const spacing = l.spacing === 'compact' ? '2rem' : l.spacing === 'airy' ? '7rem' : '4rem';
-              el.style.paddingTop = spacing;
-              el.style.paddingBottom = spacing;
-              el.style.textAlign = l.alignment || 'center';
-              if (s.visible === false) el.style.display = 'none'; else el.style.removeProperty('display');
-              if (s.content?.heading) { const h = el.querySelector('h1,h2,h3'); if (h) h.textContent = s.content.heading; }
-              if (s.content?.intro) { const p = Array.from(el.querySelectorAll('p')).find(x => x.textContent?.trim()); if (p) p.textContent = s.content.intro; }
-              mapped.push({s,el});
-            });
-            const main = document.querySelector('main');
-            if (main && mapped.length) {
-              main.style.display = 'flex';
-              main.style.flexDirection = 'column';
-              mapped.forEach(({s,el}) => { const direct = el.closest('main > *'); if (direct) direct.style.order = String(s.sort_order); });
-            }
-            if (Array.isArray(cms.projects)) {
-              applyProjectGalleries(cms.projects);
-              applyProjectLogos(cms.projects);
-            }
-            const site = cms.settings?.site || {};
-            if (site.title) document.title = site.title;
-            if (site.accent) document.documentElement.style.setProperty('--bluehaven-accent', site.accent);
-          } catch (e) {
-            console.warn('Bluehaven CMS bridge unavailable', e);
-          } finally {
-            applying = false;
-          }
-        };
-        const observer = new MutationObserver(() => { addAdminLink(); schedule(180); });
-        observer.observe(document.documentElement, { childList:true, subtree:true });
-        addAdminLink();
-        schedule(700);
-        schedule(1800);
-      })();
-    </script>
-    <script type="module" src="/cms-smart-media.js"></script>
-    <script type="module" src="/cms-visibility.js"></script>
     <script type="module" src="/src/main.tsx"></script>
+    
   </body>
 </html>

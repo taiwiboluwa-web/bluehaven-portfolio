@@ -79,7 +79,7 @@ app.post("/make-server-cf1ab75b/generate-packaging", async (c) => {
       imageUrl = data.data[0].url;
 
     } else if (provider === "stability" && stabilityKey) {
-      // Stability AI API (text-to-image with optional image reference)
+      // Stability AI (text-to-image with optional image reference)
       const formData = new FormData();
       formData.append("prompt", prompt);
       formData.append("output_format", "png");
