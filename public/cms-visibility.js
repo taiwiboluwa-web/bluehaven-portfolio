@@ -104,7 +104,12 @@ function renderNewProjects(projects) {
   host.appendChild(grid);
 }
 
+let syncing = false;
+let scheduled;
+
 async function sync() {
+  if (syncing) return;
+  syncing = true;
   try {
     const response = await fetch(CMS_URL, { cache: 'no-store' });
     if (!response.ok) return;
@@ -114,9 +119,15 @@ async function sync() {
     renderNewProjects(projects);
   } catch (error) {
     console.warn('Bluehaven CMS visibility bridge unavailable', error);
+  } finally {
+    syncing = false;
   }
 }
 
+const schedule = () => {
+  clearTimeout(scheduled);
+  scheduled = setTimeout(sync, 350);
+};
+
 sync();
-setTimeout(sync, 1200);
-setTimeout(sync, 3000);
+new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
