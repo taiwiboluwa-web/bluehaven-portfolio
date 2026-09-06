@@ -1,5 +1,4 @@
 import { neon } from '@neondatabase/serverless';
-import { del, put } from '@vercel/blob';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { safeSlug, validateUpload } from '../src/lib/adminValidation.js';
 
@@ -21,7 +20,7 @@ async function visible(db:any){
  const projects=await db`SELECT id,slug,name,category,description,website_url,visible,sort_order,gallery_layout,created_at,updated_at FROM portfolio_projects WHERE visible=true ORDER BY sort_order,created_at DESC`;
  const ids=(projects as any[]).map(p=>p.id);
  const media=ids.length?await db`SELECT id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,file_name,mime_type FROM portfolio_media WHERE project_id=ANY(${ids}) ORDER BY sort_order,created_at`:[];
- return (projects as any[]).map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout),media:(media as any[]).filter(m=>m.project_id===p.id).map(m=>({...m,storage_url:m.storage_key?.startsWith('portfolio/')?m.storage_url:(m.file_name?`/api/media?id=${m.id}`:m.storage_url)}))})).filter(p=>p.media.some((m:any)=>m.file_name));
+ return (projects as any[]).map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout),media:(media as any[]).filter(m=>m.project_id===p.id).map(m=>({...m,storage_url:m.file_name?`/api/media?id=${m.id}`:m.storage_url}))})).filter(p=>p.media.some((m:any)=>m.file_name));
 }
 
 export default async function handler(req:Req,res:Res){
@@ -32,7 +31,7 @@ export default async function handler(req:Req,res:Res){
   if(req.method==='GET'){
    const projects=await db`SELECT id,slug,name,category,description,website_url,visible,sort_order,gallery_layout,created_at,updated_at FROM portfolio_projects ORDER BY sort_order,created_at DESC`;
    const media=await db`SELECT id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,file_name,mime_type FROM portfolio_media ORDER BY project_id,sort_order,created_at`;
-   return send(res,{projects:(projects as any[]).map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout)})),media:(media as any[]).map(m=>({...m,storage_url:m.storage_key?.startsWith('portfolio/')?m.storage_url:(m.file_name?`/api/media?id=${m.id}`:m.storage_url)}))});
+   return send(res,{projects:(projects as any[]).map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout)})),media:(media as any[]).map(m=>({...m,storage_url:m.file_name?`/api/media?id=${m.id}`:m.storage_url}))});
   }
   if(req.method!=='POST')return send(res,{error:'Method not allowed'},405);
   const b=body(req);
@@ -62,21 +61,19 @@ export default async function handler(req:Req,res:Res){
    return send(res,{ok:true});
   }
   if(b.action==='delete_media'){
-   const id=String(b.id);const rows=await db`SELECT storage_key FROM portfolio_media WHERE id=${id} LIMIT 1`;const key=String((rows as any[])[0]?.storage_key||'');
+   const id=String(b.id);
    await db`DELETE FROM portfolio_media WHERE id=${id}`;
-   if(key.startsWith('portfolio/')){try{await del(key)}catch(error){console.warn('BlueHaven Blob delete warning:',error)}}
    return send(res,{ok:true});
   }
   if(b.action==='delete'){await db`DELETE FROM portfolio_projects WHERE id=${String(b.id)}`;return send(res,{ok:true});}
   if(b.action==='upload'){
    const m=String(b.data_url||'').match(/^data:([^;]+);base64,(.+)$/s);if(!m)return send(res,{error:'Invalid image data'},400);
-   const mime=m[1],bytes=Buffer.from(m[2],'base64'),validation=validateUpload(mime,bytes.byteLength);if(validation)return send(res,{error:validation},bytes.byteLength>3*1024*1024?413:400);
+   const mime=m[1],bytes=Buffer.from(m[2],'base64'),validation=validateUpload(mime,bytes.byteLength);if(validation)return send(res,{error:validation},bytes.byteLength>20*1024*1024?413:400);
    const id=randomUUID(),projectId=String(b.project_id);const exists=await db`SELECT id FROM portfolio_projects WHERE id=${projectId} LIMIT 1`;if(!(exists as any[])[0])return send(res,{error:'Project not found'},404);
    const next=await db`SELECT COALESCE(MAX(sort_order),-1) AS max FROM portfolio_media WHERE project_id=${projectId}`,order=Number((next as any[])[0].max)+1;
-   const fileName=safeFile(String(b.file_name||`upload-${id}`)),pathname=`portfolio/${projectId}/${id}-${fileName}`;
-   const blob=await put(pathname,bytes,{access:'public',addRandomSuffix:false,contentType:mime});
-   await db`INSERT INTO portfolio_media(id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,created_at,updated_at,file_data,file_name,mime_type) VALUES(${id},${projectId},${blob.url},${pathname},${String(b.alt_text||'BlueHaven Studio work').slice(0,180)},'image',${order},${order===0},NOW(),NOW(),NULL,${fileName},${mime})`;
-   return send(res,{ok:true,id,url:blob.url});
+   const fileName=safeFile(String(b.file_name||`upload-${id}`));
+   await db`INSERT INTO portfolio_media(id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,created_at,updated_at,file_data,file_name,mime_type) VALUES(${id},${projectId},NULL,NULL,${String(b.alt_text||'BlueHaven Studio work').slice(0,180)},'image',${order},${order===0},NOW(),NOW(),${bytes},${fileName},${mime})`;
+   return send(res,{ok:true,id,url:`/api/media?id=${id}`});
   }
   return send(res,{error:'Unknown action'},400);
  }catch(e){console.error('BlueHaven portfolio API error:',e);return send(res,{error:e instanceof Error?e.message:'Server error'},500)}
