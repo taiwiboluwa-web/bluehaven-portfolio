@@ -36,8 +36,10 @@ export function ActiveBuddy({ className = '', size = 150, visible = true }: Prop
       }
     };
     load();
+    const refresh = window.setInterval(load, 10000);
     return () => {
       cancelled = true;
+      window.clearInterval(refresh);
     };
   }, []);
 
@@ -53,9 +55,7 @@ export function ActiveBuddy({ className = '', size = 150, visible = true }: Prop
       setFrame((current) => {
         const next = current + 1;
         if (next < definition.frames) return next;
-        if (animation !== 'idle') {
-          window.setTimeout(() => setAnimation('idle'), 0);
-        }
+        if (animation !== 'idle') window.setTimeout(() => setAnimation('idle'), 0);
         return 0;
       });
     }, frameDuration);
@@ -63,15 +63,13 @@ export function ActiveBuddy({ className = '', size = 150, visible = true }: Prop
   }, [animation]);
 
   useEffect(() => {
-    const schedule = () => {
-      const delay = 6500 + Math.random() * 8500;
-      return window.setTimeout(() => {
-        const next = ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
-        setFrame(0);
-        setAnimation(next);
-      }, delay);
-    };
-    const timer = schedule();
+    if (animation !== 'idle') return;
+    const delay = 7000 + Math.random() * 9000;
+    const timer = window.setTimeout(() => {
+      const next = ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
+      setFrame(0);
+      setAnimation(next);
+    }, delay);
     return () => window.clearTimeout(timer);
   }, [animation]);
 
