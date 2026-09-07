@@ -6,14 +6,22 @@ export function normalizeName(value:string){
   return value.toLowerCase().replace(/[^a-z0-9]+/g,'');
 }
 
+function findLegacy(projectName:string,fallback:FallbackProject[]){
+  const normalized=normalizeName(projectName);
+  const exact=fallback.find(item=>normalizeName(item.title)===normalized);
+  if(exact)return exact;
+  return fallback.find(item=>{
+    const legacy=normalizeName(item.title);
+    return legacy.length>4&&(legacy.includes(normalized)||normalized.includes(legacy));
+  });
+}
+
 export function buildPortfolioItems(projects:DbProject[],fallback:FallbackProject[]):DisplayProject[]{
-  const byName=new Map(fallback.map(item=>[normalizeName(item.title),item]));
   const used=new Set<string>();
   const dynamic=projects.map(project=>{
     const media=[...(project.media||[])].sort((a,b)=>Number(Boolean(b.featured))-Number(Boolean(a.featured))||a.sort_order-b.sort_order);
-    const legacy=byName.get(normalizeName(project.name));
-    const key=normalizeName(project.name);
-    used.add(key);
+    const legacy=findLegacy(project.name,fallback);
+    if(legacy)used.add(normalizeName(legacy.title));
     return {
       id:project.id,
       title:project.name,
