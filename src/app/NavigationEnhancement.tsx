@@ -9,8 +9,13 @@ export const links = [
   { label: 'Inquire', href: '/inquire' },
 ];
 
-const normalize = (value: string) => value.replace(/\s+/g, ' ').trim();
-
+/**
+ * The main header navigation is owned by React (App.tsx).
+ * This component only adds the Stories link because Stories is a separate route.
+ * It deliberately does NOT install a document-level click/capture handler:
+ * that handler previously intercepted React's mobile menu buttons before their
+ * onClick handlers could run on touch devices.
+ */
 function addStoriesToLists() {
   document.querySelectorAll('header ul').forEach((list) => {
     if (list.querySelector('[data-bh-stories-link="1"]')) return;
@@ -27,6 +32,7 @@ function addStoriesToLists() {
     a.textContent = 'Stories';
     a.setAttribute('aria-label', 'Stories');
     a.style.display = 'block';
+    a.style.width = '100%';
     a.style.textDecoration = 'none';
     a.style.cursor = 'pointer';
     a.style.touchAction = 'manipulation';
@@ -38,60 +44,14 @@ function addStoriesToLists() {
   });
 }
 
-function handleNavigationClick(event: MouseEvent) {
-  const target = event.target as Element | null;
-  if (!target) return;
-
-  const clickable = target.closest('button, a');
-  if (!clickable || !clickable.closest('header')) return;
-
-  // Ignore the hamburger toggle itself.
-  if (clickable.getAttribute('aria-label') === 'Toggle menu') return;
-
-  const label = normalize(clickable.textContent || '');
-  const match = links.find((link) => label === link.label);
-  if (!match) return;
-
-  // Do not mutate/replace React's buttons. Capture the touch/click and perform
-  // a normal browser navigation, which is reliable on iOS and Android.
-  event.preventDefault();
-  event.stopPropagation();
-  window.location.href = match.href;
-}
-
-function wirePortfolioCTA(event: MouseEvent) {
-  const target = event.target as Element | null;
-  const clickable = target?.closest('button, a');
-  if (!clickable) return;
-  const label = normalize(clickable.textContent || '');
-  if (label !== 'View Portfolio') return;
-  event.preventDefault();
-  event.stopPropagation();
-  window.location.href = '/portfolio';
-}
-
 export default function NavigationEnhancement() {
   useEffect(() => {
-    // This component previously replaced React buttons with DOM-created anchors.
-    // That raced React's mobile menu rendering and made touch targets unreliable.
-    // Keep React in control and use one delegated capture listener instead.
     addStoriesToLists();
 
-    const handleClick = (event: MouseEvent) => {
-      const target = event.target as Element | null;
-      const label = normalize(target?.closest('button, a')?.textContent || '');
-      if (label === 'View Portfolio') {
-        wirePortfolioCTA(event);
-        return;
-      }
-      handleNavigationClick(event);
-    };
+    const observer = new MutationObserver(() => addStoriesToLists());
+    observer.observe(document.body, { childList: true, subtree: true });
 
-    document.addEventListener('click', handleClick, true);
-
-    return () => {
-      document.removeEventListener('click', handleClick, true);
-    };
+    return () => observer.disconnect();
   }, []);
 
   return null;
