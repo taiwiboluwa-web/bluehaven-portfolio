@@ -9,74 +9,90 @@ export const links = [
   { label: 'Inquire', href: '/inquire' },
 ];
 
-function makeAnchor(label: string, href: string, template: Element) {
-  const a = document.createElement('a');
-  a.href = href;
-  a.textContent = label;
-  a.className = template.className;
-  a.setAttribute('data-bh-nav', '1');
-  a.setAttribute('aria-label', label);
-  a.style.textDecoration = 'none';
-  a.style.cursor = 'pointer';
-  a.style.pointerEvents = 'auto';
-  a.style.touchAction = 'manipulation';
-  a.addEventListener('click', (event) => {
-    // Use a real navigation rather than relying on React's removed button handler.
-    // This keeps the links reliable on touch devices as well as desktop browsers.
-    event.preventDefault();
-    window.location.assign(href);
-  });
-  return a;
-}
+const normalize = (value: string) => value.replace(/\s+/g, ' ').trim();
 
-function replaceButtons(scope: string) {
-  Array.from(document.querySelectorAll(`${scope} button`)).forEach((button) => {
-    const label = (button.textContent || '').replace(/\s+/g, ' ').trim();
-    const match = links.find((link) => label === link.label);
-    if (!match || button.getAttribute('data-bh-nav') === '1') return;
-    button.replaceWith(makeAnchor(label, match.href, button));
-  });
-}
+function addStoriesToLists() {
+  document.querySelectorAll('header ul').forEach((list) => {
+    if (list.querySelector('[data-bh-stories-link="1"]')) return;
 
-function wirePortfolioCTA() {
-  Array.from(document.querySelectorAll('button')).forEach((button) => {
-    if (button.getAttribute('data-bh-portfolio-cta') === '1') return;
-    const label = (button.textContent || '').replace(/\s+/g, ' ').trim();
-    if (label !== 'View Portfolio') return;
-    button.setAttribute('data-bh-portfolio-cta', '1');
-    button.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      window.location.assign('/portfolio');
-    });
-  });
-}
+    const first = list.querySelector('li');
+    if (!first) return;
 
-function addStoriesToLists(scope: string) {
-  Array.from(document.querySelectorAll(`${scope} ul`)).forEach((list) => {
-    if (list.querySelector('a[href="/stories"]')) return;
-    const home = list.querySelector('a[href="/"]');
-    if (!home) return;
     const li = document.createElement('li');
-    li.appendChild(makeAnchor('Stories', '/stories', home));
+    li.setAttribute('data-bh-stories-link', '1');
+    li.style.listStyle = 'none';
+
+    const a = document.createElement('a');
+    a.href = '/stories';
+    a.textContent = 'Stories';
+    a.setAttribute('aria-label', 'Stories');
+    a.style.display = 'block';
+    a.style.textDecoration = 'none';
+    a.style.cursor = 'pointer';
+    a.style.touchAction = 'manipulation';
+    a.style.webkitTapHighlightColor = 'transparent';
+    a.className = first.querySelector('button, a')?.className || '';
+
+    li.appendChild(a);
     list.insertBefore(li, list.children[1] || null);
   });
 }
 
-function enhanceNavigation() {
-  replaceButtons('header');
-  replaceButtons('footer');
-  addStoriesToLists('header');
-  addStoriesToLists('footer');
-  wirePortfolioCTA();
+function handleNavigationClick(event: MouseEvent) {
+  const target = event.target as Element | null;
+  if (!target) return;
+
+  const clickable = target.closest('button, a');
+  if (!clickable || !clickable.closest('header')) return;
+
+  // Ignore the hamburger toggle itself.
+  if (clickable.getAttribute('aria-label') === 'Toggle menu') return;
+
+  const label = normalize(clickable.textContent || '');
+  const match = links.find((link) => label === link.label);
+  if (!match) return;
+
+  // Do not mutate/replace React's buttons. Capture the touch/click and perform
+  // a normal browser navigation, which is reliable on iOS and Android.
+  event.preventDefault();
+  event.stopPropagation();
+  window.location.href = match.href;
+}
+
+function wirePortfolioCTA(event: MouseEvent) {
+  const target = event.target as Element | null;
+  const clickable = target?.closest('button, a');
+  if (!clickable) return;
+  const label = normalize(clickable.textContent || '');
+  if (label !== 'View Portfolio') return;
+  event.preventDefault();
+  event.stopPropagation();
+  window.location.href = '/portfolio';
 }
 
 export default function NavigationEnhancement() {
   useEffect(() => {
-    enhanceNavigation();
-    const observer = new MutationObserver(enhanceNavigation);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    // This component previously replaced React buttons with DOM-created anchors.
+    // That raced React's mobile menu rendering and made touch targets unreliable.
+    // Keep React in control and use one delegated capture listener instead.
+    addStoriesToLists();
+
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as Element | null;
+      const label = normalize(target?.closest('button, a')?.textContent || '');
+      if (label === 'View Portfolio') {
+        wirePortfolioCTA(event);
+        return;
+      }
+      handleNavigationClick(event);
+    };
+
+    document.addEventListener('click', handleClick, true);
+
+    return () => {
+      document.removeEventListener('click', handleClick, true);
+    };
   }, []);
+
   return null;
 }
