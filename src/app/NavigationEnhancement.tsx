@@ -50,14 +50,13 @@ function addStoriesToLists() {
 
 function addMissingFooterNavigation() {
   document.querySelectorAll('footer ul').forEach((list) => {
-    const existingLabels = new Set(
-      Array.from(list.querySelectorAll('button, a')).map((item) =>
-        (item.textContent ?? '').trim().toLowerCase()
-      )
-    );
+    const findItem = (label: string) =>
+      Array.from(list.querySelectorAll('li')).find(
+        (li) => (li.textContent ?? '').trim().toLowerCase() === label.toLowerCase()
+      ) ?? null;
 
     links.forEach(({ label, href }) => {
-      if (existingLabels.has(label.toLowerCase())) return;
+      if (findItem(label)) return;
 
       const li = document.createElement('li');
       li.setAttribute('data-bh-footer-link', label.toLowerCase());
@@ -76,7 +75,13 @@ function addMissingFooterNavigation() {
 
       li.appendChild(a);
       list.appendChild(li);
-      existingLabels.add(label.toLowerCase());
+    });
+
+    // Keep the footer in the same order as the header, regardless of which
+    // items were already rendered by the original React component.
+    links.forEach(({ label }) => {
+      const item = findItem(label);
+      if (item) list.appendChild(item);
     });
   });
 }
