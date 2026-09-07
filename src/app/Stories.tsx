@@ -12,6 +12,16 @@ const nav = [['Home','/'],['Stories','/stories'],['Services','/services'],['Port
 const date = (value:string|null) => value ? new Intl.DateTimeFormat('en-NG',{day:'numeric',month:'long',year:'numeric'}).format(new Date(value)) : '';
 const reading = (value:string) => Math.max(1,Math.ceil(value.trim().split(/\s+/).filter(Boolean).length/220));
 
+async function loadStory(slug:string):Promise<Story|null>{
+  const direct=await fetch(`/api/stories?slug=${encodeURIComponent(slug)}`,{cache:'no-store'});
+  if(direct.ok){const data=await direct.json();if(data?.story?.slug===slug)return data.story as Story;}
+  const list=await fetch('/api/stories',{cache:'no-store'});
+  if(!list.ok)return null;
+  const data=await list.json();
+  const match=Array.isArray(data?.stories)?data.stories.find((item:Story)=>item.slug===slug):null;
+  return match||null;
+}
+
 function Header(){
   const [open,setOpen]=useState(false);
   return <header className="relative z-50 sticky top-0 border-b border-white/10 bg-black/40 px-4 py-3 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,.1)] md:px-[10%] md:py-5">
@@ -39,6 +49,6 @@ function Article({story}:{story:Story}){return <><main className={storiesClasses
 export default function Stories(){
   const path=window.location.pathname; const slug=path.startsWith('/stories/')?decodeURIComponent(path.split('/').filter(Boolean)[1]||''):'';
   const [stories,setStories]=useState<Story[]>([]); const [story,setStory]=useState<Story|null>(null); const [loading,setLoading]=useState(true);
-  useEffect(()=>{fetch(slug?`/api/stories?slug=${encodeURIComponent(slug)}`:'/api/stories').then(r=>r.json()).then(data=>slug?setStory(data.story||null):setStories(Array.isArray(data.stories)?data.stories:[])).catch(()=>slug?setStory(null):setStories([])).finally(()=>setLoading(false));},[slug]);
+  useEffect(()=>{let cancelled=false;const run=async()=>{try{if(slug){const result=await loadStory(slug);if(!cancelled)setStory(result);}else{const r=await fetch('/api/stories',{cache:'no-store'});const data=await r.json();if(!cancelled)setStories(Array.isArray(data.stories)?data.stories:[]);}}catch{if(!cancelled){if(slug)setStory(null);else setStories([])}}finally{if(!cancelled)setLoading(false)}};void run();return()=>{cancelled=true}},[slug]);
   return <div className={storiesClasses.page} style={{fontFamily:'Montserrat, sans-serif'}}><ScrollProgressBar/><DepthLayer depth={0}><LiquidBackground/></DepthLayer><Header/>{slug?(loading?<main className={storiesClasses.section}><p className="text-white/40">Loading story…</p></main>:story?<Article story={story}/>:<main className={storiesClasses.section}><h1 className="text-4xl font-black">Story not found.</h1><a href="/stories" className="mt-6 inline-flex items-center gap-2 text-[#ffde59]"><ArrowLeft size={16}/>All stories</a></main>):<><main className={storiesClasses.section}><div className="mb-12 max-w-3xl"><p className={storiesClasses.eyebrow}>Stories</p><h1 className="mt-3 text-5xl font-black tracking-tight md:text-7xl">Ideas behind the work.</h1><p className="mt-5 max-w-2xl text-base leading-7 text-white/50 md:text-lg">Behind-the-scenes notes, lessons, people and projects from BlueHaven Studios.</p></div><div className="mb-8 flex items-end justify-between gap-6 border-b border-white/10 pb-5"><div><p className="text-[10px] font-bold uppercase tracking-[.22em] text-white/35">Latest</p><h2 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">Recent stories</h2></div><span className="hidden text-xs uppercase tracking-[.18em] text-white/30 md:block">{stories.length?`${stories.length} published`:'Editorial archive'}</span></div>{loading?<p className="py-10 text-white/40">Loading stories…</p>:!stories.length?<div className="border-y border-white/10 py-16 text-white/45">No stories have been published yet. Check back soon.</div>:<div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{stories.map((item,index)=><StoryCard key={item.id} story={item} index={index}/>)}</div>}</main><Footer/></>}</div>;
 }
