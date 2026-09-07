@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { scrollToSection } from './scrollNavigation';
 
 export const links = [
   { label: 'Home', href: '/' },
@@ -10,11 +9,17 @@ export const links = [
   { label: 'Inquire', href: '/inquire' },
 ];
 
+export function getNavigationHref(label: string): string | null {
+  const normalized = label.trim().toLowerCase().replace(/\s+/g, ' ');
+  return links.find((link) => link.label.toLowerCase() === normalized && link.label !== 'Home' && link.label !== 'Stories')?.href ?? null;
+}
+
 /**
- * The main header navigation is owned by React (App.tsx).
- * This component adds the Stories link and provides a small compatibility
- * layer for navigation. The page uses transformed 3D depth layers, so the
- * native scrollIntoView() path can be unreliable on some browsers.
+ * The main header navigation is rendered by App.tsx.
+ * The section links are real Vercel routes, so use those routes instead of
+ * relying on scrollIntoView() inside the page's transformed 3D layers.
+ * This is especially important on mobile, where the sticky/transformed header
+ * can otherwise swallow or mis-handle the synthetic React click.
  */
 function addStoriesToLists() {
   document.querySelectorAll('header ul').forEach((list) => {
@@ -50,22 +55,14 @@ function installReliableSectionNavigation() {
     const button = target?.closest('header button') as HTMLButtonElement | null;
     if (!button) return;
 
-    const label = button.textContent?.trim().toLowerCase().replace(/\s+/g, ' ');
-    const sectionByLabel: Record<string, string> = {
-      services: 'services',
-      portfolio: 'portfolio',
-      process: 'process',
-      inquire: 'contact',
-    };
+    const href = getNavigationHref(button.textContent ?? '');
+    if (!href) return;
 
-    const sectionId = label ? sectionByLabel[label] : undefined;
-    if (!sectionId) return;
-
-    // Capture the click before React's scrollIntoView handler. This makes
-    // desktop and mobile use the same reliable window-level scroll behavior.
+    // Capture before React's onClick handlers. The app already has dedicated
+    // routes for these sections and Vercel rewrites them back to index.html.
     event.preventDefault();
-    event.stopPropagation();
-    scrollToSection(sectionId);
+    event.stopImmediatePropagation();
+    window.location.assign(href);
   };
 
   document.addEventListener('click', handleClick, true);
