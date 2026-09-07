@@ -77,12 +77,17 @@ function addMissingFooterNavigation() {
       list.appendChild(li);
     });
 
-    // Keep the footer in the same order as the header, regardless of which
-    // items were already rendered by the original React component.
-    links.forEach(({ label }) => {
-      const item = findItem(label);
-      if (item) list.appendChild(item);
-    });
+    const desiredOrder = links.map(({ label }) => label.toLowerCase());
+    const currentOrder = Array.from(list.querySelectorAll(':scope > li')).map((li) =>
+      (li.textContent ?? '').trim().toLowerCase()
+    );
+
+    if (currentOrder.join('|') !== desiredOrder.join('|')) {
+      links.forEach(({ label }) => {
+        const item = findItem(label);
+        if (item) list.appendChild(item);
+      });
+    }
   });
 }
 
