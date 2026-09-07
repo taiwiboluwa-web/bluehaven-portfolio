@@ -10,14 +10,25 @@ export const links = [
   { label: 'Inquire', href: '/inquire' },
 ];
 
+function normalizeLabel(label: string): string {
+  return label
+    .trim()
+    .toLowerCase()
+    .replace(/[→➜➝➞›»]/g, '')
+    .replace(/[\u2190\u2191\u2192\u2193]/g, '')
+    .replace(/[^a-z0-9' ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function getNavigationHref(label: string): string | null {
-  const normalized = label.trim().toLowerCase().replace(/\s+/g, ' ');
+  const normalized = normalizeLabel(label);
   if (normalized === 'portfolio') return '/work';
   return links.find((link) => link.label.toLowerCase() === normalized)?.href ?? null;
 }
 
 export function getConversionHref(label: string): string | null {
-  const normalized = label.trim().toLowerCase().replace(/\s+/g, ' ');
+  const normalized = normalizeLabel(label);
   if (normalized === 'view portfolio' || normalized === 'view work') return '/work';
   if (normalized === "let's talk" || normalized === 'start a project' || normalized === 'chat with us') return '/inquire';
   return null;
@@ -53,22 +64,24 @@ function addStoriesToLists() {
 
 function addAboutToLists() {
   document.querySelectorAll('header ul').forEach((list) => {
-    if (Array.from(list.querySelectorAll('li')).some((li) => (li.textContent ?? '').trim() === 'About')) return;
-    const processItem = Array.from(list.querySelectorAll('li')).find((li) => (li.textContent ?? '').trim() === 'Process');
+    if (Array.from(list.querySelectorAll('li')).some((li) => normalizeLabel(li.textContent ?? '') === 'about')) return;
+    const processItem = Array.from(list.querySelectorAll('li')).find((li) => normalizeLabel(li.textContent ?? '') === 'process');
+    if (!processItem) return;
     const li = document.createElement('li');
     li.setAttribute('data-bh-about-link', '1');
     li.style.listStyle = 'none';
-    li.appendChild(makeLink('About', '/about', processItem?.querySelector('button, a')?.className || ''));
-    processItem?.after(li);
+    li.appendChild(makeLink('About', '/about', processItem.querySelector('button, a')?.className || ''));
+    processItem.after(li);
   });
 }
 
 function renamePortfolioControls() {
-  document.querySelectorAll('header button, footer button').forEach((control) => {
-    if ((control.textContent ?? '').trim() !== 'Portfolio') return;
+  document.querySelectorAll('header button, header a, footer button, footer a').forEach((control) => {
+    if (normalizeLabel(control.textContent ?? '') !== 'portfolio') return;
     control.childNodes.forEach((node) => {
       if (node.nodeType === Node.TEXT_NODE) node.textContent = 'Work';
     });
+    control.setAttribute('aria-label', 'Work');
   });
 }
 
@@ -78,15 +91,9 @@ function refineConversionControls() {
     const href = getConversionHref(label);
     if (!href) return;
 
-    if (href === '/work' && (label === 'View Portfolio' || label === 'View Work')) {
-      control.setAttribute('aria-label', 'View Work');
-    }
-    if (href === '/inquire') {
-      control.setAttribute('aria-label', 'Start a Project');
-    }
+    if (href === '/work') control.setAttribute('aria-label', 'View Work');
+    if (href === '/inquire') control.setAttribute('aria-label', 'Start a Project');
 
-    // Give every CTA a real href when it is an anchor, while the capture-phase
-    // handler below also covers React buttons and custom role=button elements.
     if (control instanceof HTMLAnchorElement) {
       control.href = href;
     }
@@ -95,7 +102,7 @@ function refineConversionControls() {
 
 function addMissingFooterNavigation() {
   document.querySelectorAll('footer ul').forEach((list) => {
-    const findItem = (label: string) => Array.from(list.querySelectorAll('li')).find((li) => (li.textContent ?? '').trim().toLowerCase() === label.toLowerCase()) ?? null;
+    const findItem = (label: string) => Array.from(list.querySelectorAll('li')).find((li) => normalizeLabel(li.textContent ?? '') === normalizeLabel(label)) ?? null;
     links.forEach(({ label, href }) => {
       if (findItem(label)) return;
       const li = document.createElement('li');
@@ -107,10 +114,15 @@ function addMissingFooterNavigation() {
   });
 }
 
+function shouldHandleNavigation(event: MouseEvent): boolean {
+  return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+}
+
 function installReliableNavigation() {
   const handleClick = (event: MouseEvent) => {
+    if (!shouldHandleNavigation(event)) return;
     const target = event.target as HTMLElement | null;
-    const control = target?.closest('header button, footer button') as HTMLButtonElement | null;
+    const control = target?.closest('header button, header a, footer button, footer a') as HTMLElement | null;
     if (!control) return;
     const href = getNavigationHref(control.textContent ?? '');
     if (!href) return;
@@ -120,6 +132,7 @@ function installReliableNavigation() {
   };
 
   const handleConversion = (event: MouseEvent) => {
+    if (!shouldHandleNavigation(event)) return;
     const target = event.target as HTMLElement | null;
     const control = target?.closest('button, a, [role="button"]') as HTMLElement | null;
     if (!control) return;
