@@ -27,13 +27,22 @@ export default defineConfig({
     },
   },
   build: {
-    // Vite only emitted index.html in the production build, which made
-    // Vercel's /admin rewrite resolve to a missing file. Explicitly register
-    // the existing admin entry point as a second HTML build entry.
+    target: 'es2022',
+    cssCodeSplit: true,
+    assetsInlineLimit: 4096,
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
         admin: path.resolve(__dirname, 'admin.html'),
+      },
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom'],
+          motion: ['motion'],
+          icons: ['lucide-react'],
+          metadata: ['react-helmet-async'],
+        },
       },
     },
   },
