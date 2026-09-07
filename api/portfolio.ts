@@ -6,6 +6,7 @@ type Req={method?:string;url?:string;headers?:Record<string,string|undefined>;bo
 type Res={status:(n:number)=>Res;setHeader:(n:string,v:string)=>Res;json:(d:unknown)=>void;end:(d?:unknown)=>void};
 type Layout='portrait'|'landscape'|'square';
 const MAX_UPLOAD_BYTES=20*1024*1024;
+const NEON_MEDIA_URL='';
 
 const sql=()=>{if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL is not configured');return neon(process.env.DATABASE_URL)};
 const secret=()=>process.env.BLUEHAVEN_ADMIN_PASSWORD||process.env.ADMIN_PASSWORD||'';
@@ -62,10 +63,7 @@ export default async function handler(req:Req,res:Res){
    for(let i=0;i<ids.length;i++)await db`UPDATE portfolio_media SET sort_order=${i},featured=${i===0},updated_at=NOW() WHERE id=${ids[i]} AND project_id=${projectId}`;
    return send(res,{ok:true});
   }
-  if(b.action==='delete_media'){
-   await db`DELETE FROM portfolio_media WHERE id=${String(b.id)}`;
-   return send(res,{ok:true});
-  }
+  if(b.action==='delete_media'){await db`DELETE FROM portfolio_media WHERE id=${String(b.id)}`;return send(res,{ok:true});}
   if(b.action==='delete'){await db`DELETE FROM portfolio_projects WHERE id=${String(b.id)}`;return send(res,{ok:true});}
   if(b.action==='upload_chunk'){
    const uploadId=String(b.upload_id||''),projectId=String(b.project_id||''),chunkIndex=Number(b.chunk_index),totalChunks=Number(b.total_chunks),totalSize=Number(b.total_size),fileName=safeFile(String(b.file_name||'upload'));
@@ -73,7 +71,7 @@ export default async function handler(req:Req,res:Res){
    const {mime,bytes}=decodeDataUrl(b.data_url);if(bytes.length===0)return send(res,{error:'Empty upload chunk'},400);if(!['image/jpeg','image/png','image/webp','image/gif','image/svg+xml'].includes(mime))return send(res,{error:'Unsupported image type'},400);
    const exists=await db`SELECT id FROM portfolio_projects WHERE id=${projectId} LIMIT 1`;if(!(exists as any[])[0])return send(res,{error:'Project not found'},404);
    if(chunkIndex===0){
-    await db`INSERT INTO portfolio_media(id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,created_at,updated_at,file_data,file_name,mime_type) VALUES(${uploadId},${projectId},NULL,NULL,${String(b.alt_text||'BlueHaven Studio work').slice(0,180)},'image',-1,false,NOW(),NOW(),${bytes},NULL,${mime}) ON CONFLICT (id) DO UPDATE SET file_data=EXCLUDED.file_data,mime_type=EXCLUDED.mime_type,updated_at=NOW()`;
+    await db`INSERT INTO portfolio_media(id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,created_at,updated_at,file_data,file_name,mime_type) VALUES(${uploadId},${projectId},${NEON_MEDIA_URL},'',${String(b.alt_text||'BlueHaven Studio work').slice(0,180)},'image',-1,false,NOW(),NOW(),${bytes},NULL,${mime}) ON CONFLICT (id) DO UPDATE SET file_data=EXCLUDED.file_data,mime_type=EXCLUDED.mime_type,storage_url=EXCLUDED.storage_url,storage_key=EXCLUDED.storage_key,updated_at=NOW()`;
    }else{
     const updated=await db`UPDATE portfolio_media SET file_data=COALESCE(file_data,decode('','hex')) || ${bytes},updated_at=NOW() WHERE id=${uploadId} AND project_id=${projectId} AND file_name IS NULL RETURNING id`;
     if(!(updated as any[])[0])return send(res,{error:'Upload session not found'},409);
@@ -88,7 +86,7 @@ export default async function handler(req:Req,res:Res){
    if(!rows[0])return send(res,{error:'Upload session not found'},404);
    if(Number(rows[0].bytes)!==totalSize)return send(res,{error:`Upload incomplete: received ${Number(rows[0].bytes)} of ${totalSize} bytes`},409);
    const next=await db`SELECT COALESCE(MAX(sort_order),-1) AS max FROM portfolio_media WHERE project_id=${projectId} AND file_name IS NOT NULL`,order=Number((next as any[])[0].max)+1;
-   await db`UPDATE portfolio_media SET file_name=${fileName},mime_type=${mime},sort_order=${order},featured=${order===0},updated_at=NOW() WHERE id=${uploadId} AND project_id=${projectId}`;
+   await db`UPDATE portfolio_media SET file_name=${fileName},mime_type=${mime},sort_order=${order},featured=${order===0},storage_url=${NEON_MEDIA_URL},storage_key='',updated_at=NOW() WHERE id=${uploadId} AND project_id=${projectId}`;
    return send(res,{ok:true,id:uploadId,url:`/api/media?id=${uploadId}`});
   }
   if(b.action==='upload'){
@@ -96,7 +94,7 @@ export default async function handler(req:Req,res:Res){
    const id=randomUUID(),projectId=String(b.project_id);const exists=await db`SELECT id FROM portfolio_projects WHERE id=${projectId} LIMIT 1`;if(!(exists as any[])[0])return send(res,{error:'Project not found'},404);
    const next=await db`SELECT COALESCE(MAX(sort_order),-1) AS max FROM portfolio_media WHERE project_id=${projectId}`,order=Number((next as any[])[0].max)+1;
    const fileName=safeFile(String(b.file_name||`upload-${id}`));
-   await db`INSERT INTO portfolio_media(id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,created_at,updated_at,file_data,file_name,mime_type) VALUES(${id},${projectId},NULL,NULL,${String(b.alt_text||'BlueHaven Studio work').slice(0,180)},'image',${order},${order===0},NOW(),NOW(),${bytes},${fileName},${mime})`;
+   await db`INSERT INTO portfolio_media(id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,created_at,updated_at,file_data,file_name,mime_type) VALUES(${id},${projectId},${NEON_MEDIA_URL},'',${String(b.alt_text||'Bluehaven Studio work').slice(0,180)},'image',${order},${order===0},NOW(),NOW(),${bytes},${fileName},${mime})`;
    return send(res,{ok:true,id,url:`/api/media?id=${id}`});
   }
   return send(res,{error:'Unknown action'},400);
