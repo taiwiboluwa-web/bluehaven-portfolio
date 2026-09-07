@@ -1,8 +1,4 @@
 import { createRoot } from 'react-dom/client';
-import Admin from './app/Admin.tsx';
-import Stories from './app/Stories.tsx';
-import RouteView from './app/RouteView.tsx';
-import NavigationEnhancement from './app/NavigationEnhancement.tsx';
 import './styles/index.css';
 
 const root = createRoot(document.getElementById('root')!);
@@ -11,9 +7,14 @@ const isAdmin = path === '/admin' || path.startsWith('/admin/');
 const isStories = path === '/stories' || path.startsWith('/stories/');
 
 if (isAdmin) {
-  root.render(<Admin/>);
+  import('./app/Admin.tsx').then(({ default: Admin }) => root.render(<Admin/>));
 } else if (isStories) {
-  root.render(<Stories/>);
+  import('./app/Stories.tsx').then(({ default: Stories }) => root.render(<Stories/>));
 } else {
-  root.render(<><RouteView/><NavigationEnhancement/></>);
+  Promise.all([
+    import('./app/RouteView.tsx'),
+    import('./app/NavigationEnhancement.tsx'),
+  ]).then(([{ default: RouteView }, { default: NavigationEnhancement }]) => {
+    root.render(<><RouteView/><NavigationEnhancement/></>);
+  });
 }
