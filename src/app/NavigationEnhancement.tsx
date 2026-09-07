@@ -27,15 +27,14 @@ function enhanceNavigation(){
     button.replaceWith(makeAnchor(label,match.href,button));
   });
 
-  const desktopNav=document.querySelector('header nav.hidden.md\\:block ul');
-  if(desktopNav&&!desktopNav.querySelector('a[href="/stories"]')){
-    const template=desktopNav.querySelector('a[href="/"]')||desktopNav.querySelector('a');
-    if(template){
-      const li=document.createElement('li');
-      li.appendChild(makeAnchor('Stories','/stories',template));
-      desktopNav.insertBefore(li,desktopNav.children[1]||null);
-    }
-  }
+  Array.from(document.querySelectorAll('header ul')).forEach(list=>{
+    if(list.querySelector('a[href="/stories"]'))return;
+    const home=list.querySelector('a[href="/"]');
+    if(!home)return;
+    const li=document.createElement('li');
+    li.appendChild(makeAnchor('Stories','/stories',home));
+    list.insertBefore(li,list.children[1]||null);
+  });
 }
 
 export default function NavigationEnhancement(){
