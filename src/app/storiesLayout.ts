@@ -1,7 +1,11 @@
 export const storiesClasses = {
-  page: 'min-h-screen bg-[#0f0f0f] text-white',
-  container: 'mx-auto w-full max-w-7xl px-5 md:px-[10%]',
-  eyebrow: 'text-xs font-semibold uppercase tracking-[.25em] text-[#ffde59]',
+  page: 'relative min-h-screen overflow-x-hidden bg-[#0f0f0f] text-white',
+  shell: 'relative z-10 mx-auto w-full max-w-7xl px-5 md:px-10',
+  section: 'relative z-10 mx-auto w-full max-w-7xl px-5 py-20 md:px-10 md:py-24',
+  eyebrow: 'text-xs font-semibold uppercase tracking-[.25em] text-white/45',
+  accent: 'text-[#ffde59]',
+  rule: 'border-white/10',
+  card: 'overflow-hidden rounded-3xl border border-white/10 bg-white/[.035]',
 };
 
 export function getStoryGridClass(index: number) {
