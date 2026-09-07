@@ -20,9 +20,13 @@
     { "source": "/services/", "destination": "/index.html" },
     { "source": "/portfolio", "destination": "/index.html" },
     { "source": "/portfolio/", "destination": "/index.html" },
+    { "source": "/work", "destination": "/index.html" },
+    { "source": "/work/", "destination": "/index.html" },
     { "source": "/process", "destination": "/index.html" },
     { "source": "/process/", "destination": "/index.html" },
     { "source": "/inquire", "destination": "/index.html" },
-    { "source": "/inquire/", "destination": "/index.html" }
+    { "source": "/inquire/", "destination": "/index.html" },
+    { "source": "/about", "destination": "/index.html" },
+    { "source": "/about/", "destination": "/index.html" }
   ]
 }
