@@ -1,4 +1,6 @@
 import { createRoot } from 'react-dom/client';
+import RouteView from './app/RouteView.tsx';
+import NavigationEnhancement from './app/NavigationEnhancement.tsx';
 import './styles/index.css';
 
 const root = createRoot(document.getElementById('root')!);
@@ -11,10 +13,5 @@ if (isAdmin) {
 } else if (isStories) {
   import('./app/Stories.tsx').then(({ default: Stories }) => root.render(<Stories/>));
 } else {
-  Promise.all([
-    import('./app/RouteView.tsx'),
-    import('./app/NavigationEnhancement.tsx'),
-  ]).then(([{ default: RouteView }, { default: NavigationEnhancement }]) => {
-    root.render(<><RouteView/><NavigationEnhancement/></>);
-  });
+  root.render(<><RouteView/><NavigationEnhancement/></>);
 }
