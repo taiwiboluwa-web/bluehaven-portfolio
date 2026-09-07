@@ -11,7 +11,7 @@ export const links = [
 
 export function getNavigationHref(label: string): string | null {
   const normalized = label.trim().toLowerCase().replace(/\s+/g, ' ');
-  return links.find((link) => link.label.toLowerCase() === normalized && link.label !== 'Home' && link.label !== 'Stories')?.href ?? null;
+  return links.find((link) => link.label.toLowerCase() === normalized && link.label !== 'Stories')?.href ?? null;
 }
 
 /**
@@ -59,7 +59,8 @@ function installReliableSectionNavigation() {
     if (!href) return;
 
     // Capture before React's onClick handlers. The app already has dedicated
-    // routes for these sections and Vercel rewrites them back to index.html.
+    // routes and the Home route must be handled the same way as every other
+    // navigation item to avoid the transformed header swallowing the click.
     event.preventDefault();
     event.stopImmediatePropagation();
     window.location.assign(href);
