@@ -11,15 +11,14 @@ export const links = [
 
 export function getNavigationHref(label: string): string | null {
   const normalized = label.trim().toLowerCase().replace(/\s+/g, ' ');
-  return links.find((link) => link.label.toLowerCase() === normalized && link.label !== 'Stories')?.href ?? null;
+  return links.find((link) => link.label.toLowerCase() === normalized)?.href ?? null;
 }
 
 /**
- * The main header navigation is rendered by App.tsx.
- * The section links are real Vercel routes, so use those routes instead of
- * relying on scrollIntoView() inside the page's transformed 3D layers.
- * This is especially important on mobile, where the sticky/transformed header
- * can otherwise swallow or mis-handle the synthetic React click.
+ * Keep navigation reliable across both the header and footer.
+ * The site has dedicated routes for every primary navigation item, so links
+ * should not depend on scrollIntoView() or transformed 3D layers swallowing
+ * React click events on desktop or mobile.
  */
 function addStoriesToLists() {
   document.querySelectorAll('header ul').forEach((list) => {
@@ -49,18 +48,48 @@ function addStoriesToLists() {
   });
 }
 
-function installReliableSectionNavigation() {
+function addMissingFooterNavigation() {
+  document.querySelectorAll('footer ul').forEach((list) => {
+    const existingLabels = new Set(
+      Array.from(list.querySelectorAll('button, a')).map((item) =>
+        (item.textContent ?? '').trim().toLowerCase()
+      )
+    );
+
+    links.forEach(({ label, href }) => {
+      if (existingLabels.has(label.toLowerCase())) return;
+
+      const li = document.createElement('li');
+      li.setAttribute('data-bh-footer-link', label.toLowerCase());
+      li.style.listStyle = 'none';
+
+      const a = document.createElement('a');
+      a.href = href;
+      a.textContent = label;
+      a.setAttribute('aria-label', label);
+      a.style.display = 'inline-block';
+      a.style.textDecoration = 'none';
+      a.style.cursor = 'pointer';
+      a.style.touchAction = 'manipulation';
+      a.style.webkitTapHighlightColor = 'transparent';
+      a.className = list.querySelector('button, a')?.className || '';
+
+      li.appendChild(a);
+      list.appendChild(li);
+      existingLabels.add(label.toLowerCase());
+    });
+  });
+}
+
+function installReliableNavigation() {
   const handleClick = (event: MouseEvent) => {
     const target = event.target as HTMLElement | null;
-    const button = target?.closest('header button') as HTMLButtonElement | null;
-    if (!button) return;
+    const control = target?.closest('header button, footer button') as HTMLButtonElement | null;
+    if (!control) return;
 
-    const href = getNavigationHref(button.textContent ?? '');
+    const href = getNavigationHref(control.textContent ?? '');
     if (!href) return;
 
-    // Capture before React's onClick handlers. The app already has dedicated
-    // routes and the Home route must be handled the same way as every other
-    // navigation item to avoid the transformed header swallowing the click.
     event.preventDefault();
     event.stopImmediatePropagation();
     window.location.assign(href);
@@ -72,16 +101,21 @@ function installReliableSectionNavigation() {
 
 export default function NavigationEnhancement() {
   useEffect(() => {
-    addStoriesToLists();
+    const syncNavigation = () => {
+      addStoriesToLists();
+      addMissingFooterNavigation();
+    };
 
-    const observer = new MutationObserver(() => addStoriesToLists());
+    syncNavigation();
+
+    const observer = new MutationObserver(syncNavigation);
     observer.observe(document.body, { childList: true, subtree: true });
 
-    const removeSectionNavigation = installReliableSectionNavigation();
+    const removeNavigation = installReliableNavigation();
 
     return () => {
       observer.disconnect();
-      removeSectionNavigation();
+      removeNavigation();
     };
   }, []);
 
