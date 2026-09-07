@@ -2,59 +2,86 @@ import { useEffect } from 'react';
 import App from './App';
 import SiteEnhancements from './SiteEnhancements';
 
-const targets:Record<string,string>={services:'services',portfolio:'portfolio',process:'process',inquire:'contact'};
+const targets: Record<string, string> = {
+  services: 'services',
+  portfolio: 'portfolio',
+  work: 'bluehaven-managed-work',
+  process: 'process',
+  inquire: 'contact',
+  about: 'about',
+};
 
-function directChild(node:Element,root:HTMLElement){
-  let current=node;
-  while(current.parentElement&&current.parentElement!==root)current=current.parentElement;
+function directChild(node: Element, root: HTMLElement) {
+  let current = node;
+  while (current.parentElement && current.parentElement !== root) current = current.parentElement;
   return current;
 }
 
-function applyRouteVisibility(resetScroll=false){
-  const key=window.location.pathname.split('/')[1]||'';
-  const root=document.querySelector('.min-h-screen.w-full.overflow-x-hidden') as HTMLElement|null;
-  if(!root)return;
+function applyRouteVisibility(resetScroll = false) {
+  const key = window.location.pathname.split('/')[1] || '';
+  const root = document.querySelector('.min-h-screen.w-full.overflow-x-hidden') as HTMLElement | null;
+  if (!root) return;
 
-  const header=document.querySelector('header');
-  const footer=document.querySelector('footer');
-  const keep=new Set<Element>();
-  if(header)keep.add(directChild(header,root));
-  if(footer)keep.add(directChild(footer,root));
+  const header = document.querySelector('header');
+  const footer = document.querySelector('footer');
+  const keep = new Set<Element>();
+  if (header) keep.add(directChild(header, root));
+  if (footer) keep.add(directChild(footer, root));
 
-  const targetId=targets[key];
-  if(targetId){
-    const target=document.getElementById(targetId);
-    if(!target)return;
-    keep.add(directChild(target,root));
-    Array.from(root.children).forEach(child=>{
-      if(keep.has(child)||child.querySelector('header')||child.querySelector('footer'))return;
-      (child as HTMLElement).dataset.bluehavenRouteHidden='1';
-      (child as HTMLElement).style.display='none';
+  const targetId = targets[key];
+  if (targetId) {
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    keep.add(directChild(target, root));
+    Array.from(root.children).forEach((child) => {
+      if (keep.has(child) || child.querySelector('header') || child.querySelector('footer')) return;
+      (child as HTMLElement).dataset.bluehavenRouteHidden = '1';
+      (child as HTMLElement).style.display = 'none';
     });
-    if(resetScroll)window.scrollTo({top:0,left:0,behavior:'auto'});
+    if (resetScroll) window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     return;
   }
 
-  if(key!=='')return;
+  if (key !== '') return;
 
-  const latest=document.getElementById('bluehaven-managed-work');
-  if(!latest)return;
-  const latestRoot=directChild(latest,root);
-  let afterLatest=false;
-  Array.from(root.children).forEach(child=>{
-    if(child===latestRoot){afterLatest=true;return;}
-    if(!afterLatest||keep.has(child)||child.querySelector('header')||child.querySelector('footer'))return;
-    (child as HTMLElement).dataset.bluehavenHomeAfterLatest='1';
-    (child as HTMLElement).style.display='none';
+  const latest = document.getElementById('bluehaven-managed-work');
+  if (!latest) return;
+  const latestRoot = directChild(latest, root);
+  let afterLatest = false;
+  Array.from(root.children).forEach((child) => {
+    if (child === latestRoot) {
+      afterLatest = true;
+      return;
+    }
+    if (!afterLatest || keep.has(child) || child.querySelector('header') || child.querySelector('footer')) return;
+    (child as HTMLElement).dataset.bluehavenHomeAfterLatest = '1';
+    (child as HTMLElement).style.display = 'none';
   });
+
+  // Once CMS work is available, let the homepage use the curated CMS section
+  // instead of rendering the legacy full portfolio twice. If the API fails and
+  // the section stays empty, the original portfolio remains visible.
+  if (latest.querySelector('[data-bluehaven-work-grid]')) {
+    const legacyPortfolio = document.getElementById('portfolio');
+    if (legacyPortfolio) {
+      const legacyRoot = directChild(legacyPortfolio, root);
+      if (legacyRoot !== latestRoot && !keep.has(legacyRoot)) {
+        legacyRoot.style.display = 'none';
+        legacyRoot.dataset.bluehavenHomeLegacyPortfolio = '1';
+      }
+    }
+  }
 }
 
-export default function RouteView(){
-  useEffect(()=>{
-    const timer=window.setTimeout(()=>applyRouteVisibility(true),180);
-    const observer=new MutationObserver(()=>applyRouteVisibility(false));
-    observer.observe(document.body,{childList:true,subtree:true});
-    return()=>{window.clearTimeout(timer);observer.disconnect()};
-  },[]);
-  return <><App/><SiteEnhancements/></>;
+export default function RouteView() {
+  useEffect(() => {
+    const timer = window.setTimeout(() => applyRouteVisibility(true), 180);
+    const observer = new MutationObserver(() => applyRouteVisibility(false));
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      window.clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, []);
+  return <><App /><SiteEnhancements /></>;
 }
