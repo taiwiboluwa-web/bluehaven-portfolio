@@ -23,7 +23,7 @@ async function visible(db:any){
  const projects=await db`SELECT id,slug,name,category,description,website_url,visible,sort_order,gallery_layout,created_at,updated_at FROM portfolio_projects WHERE visible=true ORDER BY sort_order,created_at DESC`;
  const ids=(projects as any[]).map(p=>p.id);
  const media=ids.length?await db`SELECT id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,file_name,mime_type FROM portfolio_media WHERE project_id=ANY(${ids}) AND file_name IS NOT NULL ORDER BY sort_order,created_at`:[];
- return (projects as any[]).map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout),media:(media as any[]).filter(m=>m.project_id===p.id).map(m=>({...m,storage_url:m.file_name?`/api/media?id=${m.id}`:m.storage_url}))})).filter(p=>p.media.length);
+ return (projects as any[]).map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout),media:(media as any[]).filter(m=>m.project_id===p.id).map(m=>({...m,storage_url:m.file_name?`/api/media?id=${m.id}`:m.storage_url}))}));
 }
 
 export default async function handler(req:Req,res:Res){
@@ -42,7 +42,7 @@ export default async function handler(req:Req,res:Res){
    const name=String(b.name||'').trim().slice(0,120);if(!name)return send(res,{error:'Project name is required'},400);
    const layout=layoutOf(b.gallery_layout),id=randomUUID(),slug=safeSlug(String(b.slug||name));
    const max=await db`SELECT COALESCE(MAX(sort_order),-1) AS max FROM portfolio_projects`,order=Number((max as any[])[0].max)+1;
-   await db`INSERT INTO portfolio_projects(id,slug,name,category,description,website_url,visible,sort_order,gallery_layout,created_at,updated_at) VALUES(${id},${slug},${name},${String(b.category||'Graphic Design').slice(0,80)},${String(b.description||'').slice(0,500)},${b.website_url?String(b.website_url).slice(0,500):null},${Boolean(b.visible)},${order},${JSON.stringify({aspectRatio:layout})}::jsonb,NOW(),NOW())`;
+   await db`INSERT INTO portfolio_projects(id,slug,name,category,description,website_url,visible,sort_order,gallery_layout,created_at,updated_at) VALUES(${id},${slug},${name},${String(b.category||'Graphic Design').slice(0,80)},${String(b.description||'').slice(0,500)},${b.website_url?String(b.website_url).slice(0,500):null},${b.visible===undefined?true:Boolean(b.visible)},${order},${JSON.stringify({aspectRatio:layout})}::jsonb,NOW(),NOW())`;
    return send(res,{ok:true,id});
   }
   if(b.action==='update'){
