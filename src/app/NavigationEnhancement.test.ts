@@ -5,9 +5,11 @@ describe('getNavigationHref', () => {
   it('maps every primary navigation label to its real route', () => {
     expect(getNavigationHref('Home')).toBe('/');
     expect(getNavigationHref('Stories')).toBe('/stories');
+    expect(getNavigationHref('Work')).toBe('/work');
+    expect(getNavigationHref('Portfolio')).toBe('/work');
     expect(getNavigationHref('Services')).toBe('/services');
-    expect(getNavigationHref('Portfolio')).toBe('/portfolio');
     expect(getNavigationHref('Process')).toBe('/process');
+    expect(getNavigationHref('About')).toBe('/about');
     expect(getNavigationHref('Inquire')).toBe('/inquire');
   });
 });
