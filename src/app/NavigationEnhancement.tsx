@@ -16,6 +16,13 @@ export function getNavigationHref(label: string): string | null {
   return links.find((link) => link.label.toLowerCase() === normalized)?.href ?? null;
 }
 
+export function getConversionHref(label: string): string | null {
+  const normalized = label.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (normalized === 'view portfolio' || normalized === 'view work') return '/work';
+  if (normalized === "let's talk" || normalized === 'start a project' || normalized === 'chat with us') return '/inquire';
+  return null;
+}
+
 function makeLink(label: string, href: string, className = '') {
   const a = document.createElement('a');
   a.href = href;
@@ -66,19 +73,22 @@ function renamePortfolioControls() {
 }
 
 function refineConversionControls() {
-  document.querySelectorAll('button').forEach((button) => {
-    const label = (button.textContent ?? '').trim();
-    if (label === 'View Portfolio') {
-      button.childNodes.forEach((node) => { if (node.nodeType === Node.TEXT_NODE) node.textContent = 'View Work'; });
-      button.setAttribute('aria-label', 'View Work');
+  document.querySelectorAll('button, a, [role="button"]').forEach((control) => {
+    const label = (control.textContent ?? '').trim();
+    const href = getConversionHref(label);
+    if (!href) return;
+
+    if (href === '/work' && (label === 'View Portfolio' || label === 'View Work')) {
+      control.setAttribute('aria-label', 'View Work');
     }
-    if (label === "Let's Talk") {
-      button.childNodes.forEach((node) => { if (node.nodeType === Node.TEXT_NODE) node.textContent = 'Start a Project'; });
-      button.setAttribute('aria-label', 'Start a Project');
+    if (href === '/inquire') {
+      control.setAttribute('aria-label', 'Start a Project');
     }
-    if (label === 'Chat with us') {
-      button.childNodes.forEach((node) => { if (node.nodeType === Node.TEXT_NODE) node.textContent = 'Start a Project'; });
-      button.setAttribute('aria-label', 'Start a Project');
+
+    // Give every CTA a real href when it is an anchor, while the capture-phase
+    // handler below also covers React buttons and custom role=button elements.
+    if (control instanceof HTMLAnchorElement) {
+      control.href = href;
     }
   });
 }
@@ -108,21 +118,20 @@ function installReliableNavigation() {
     event.stopImmediatePropagation();
     window.location.assign(href);
   };
+
   const handleConversion = (event: MouseEvent) => {
     const target = event.target as HTMLElement | null;
-    const button = target?.closest('button') as HTMLButtonElement | null;
-    if (!button) return;
-    const label = (button.textContent ?? '').trim();
-    if (label === 'View Work' || label === 'View Portfolio') {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      window.location.assign('/work');
-    } else if (label === 'Start a Project' || label === "Let's Talk" || label === 'Chat with us') {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      window.location.assign('/inquire');
-    }
+    const control = target?.closest('button, a, [role="button"]') as HTMLElement | null;
+    if (!control) return;
+
+    const href = getConversionHref(control.textContent ?? '');
+    if (!href) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    window.location.assign(href);
   };
+
   document.addEventListener('click', handleConversion, true);
   document.addEventListener('click', handleClick, true);
   return () => {
