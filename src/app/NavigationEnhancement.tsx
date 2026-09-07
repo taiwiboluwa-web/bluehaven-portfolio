@@ -1,0 +1,4 @@
+import { useEffect } from 'react';
+const links=[{label:'Home',href:'/'},{label:'Stories',href:'/stories'},{label:'Services',href:'/services'},{label:'Portfolio',href:'/portfolio'},{label:'Process',href:'/process'},{label:'Inquire',href:'/inquire'}];
+function replaceButtons(){Array.from(document.querySelectorAll('header button')).forEach(button=>{const label=(button.textContent||'').trim();const match=links.find(l=>label===l.label);if(!match||button.getAttribute('data-bh-nav')==='1')return;const a=document.createElement('a');a.href=match.href;a.textContent=label;a.className=button.className;a.setAttribute('data-bh-nav','1');a.style.textDecoration='none';button.replaceWith(a)})}
+export default function NavigationEnhancement(){useEffect(()=>{replaceButtons();const observer=new MutationObserver(replaceButtons);observer.observe(document.body,{childList:true,subtree:true});return()=>observer.disconnect()},[]);return null}
