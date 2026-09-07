@@ -10,7 +10,7 @@ function directChild(node:Element,root:HTMLElement){
   return current;
 }
 
-function applyRouteVisibility(){
+function applyRouteVisibility(resetScroll=false){
   const key=window.location.pathname.split('/')[1]||'';
   const root=document.querySelector('.min-h-screen.w-full.overflow-x-hidden') as HTMLElement|null;
   if(!root)return;
@@ -31,7 +31,7 @@ function applyRouteVisibility(){
       (child as HTMLElement).dataset.bluehavenRouteHidden='1';
       (child as HTMLElement).style.display='none';
     });
-    window.scrollTo({top:0});
+    if(resetScroll)window.scrollTo({top:0,left:0,behavior:'auto'});
     return;
   }
 
@@ -51,8 +51,8 @@ function applyRouteVisibility(){
 
 export default function RouteView(){
   useEffect(()=>{
-    const timer=window.setTimeout(applyRouteVisibility,180);
-    const observer=new MutationObserver(()=>applyRouteVisibility());
+    const timer=window.setTimeout(()=>applyRouteVisibility(true),180);
+    const observer=new MutationObserver(()=>applyRouteVisibility(false));
     observer.observe(document.body,{childList:true,subtree:true});
     return()=>{window.clearTimeout(timer);observer.disconnect()};
   },[]);
