@@ -12,15 +12,16 @@ const body=(r:Req)=>{if(r.body&&typeof r.body==='object')return r.body as Record
 const send=(res:Res,d:unknown,s=200)=>{res.status(s).setHeader('content-type','application/json');res.setHeader('cache-control','no-store');res.json(d)};
 const params=(r:Req)=>new URL(r.url||'/','https://bluehaven.local').searchParams;
 const layoutOf=(v:unknown):Layout=>{const x=typeof v==='object'&&v!==null?String((v as any).aspectRatio||''):String(v||'');return x==='portrait'||x==='square'||x==='landscape'?x:'landscape'};
-const isBlobUrl=(v:unknown)=>/^https:\/\/[^\s]+\.blob\.vercel-storage\.com\//.test(String(v||''));
 const publicManifest=async()=>{const m=await readPortfolioManifest();return m.projects.filter(p=>p.visible).sort((a,b)=>a.sort_order-b.sort_order||a.created_at.localeCompare(b.created_at)).map(p=>({...p,media:m.media.filter(x=>x.project_id===p.id).sort((a,b)=>a.sort_order-b.sort_order)}));};
 const adminManifest=async()=>{const m=await readPortfolioManifest();return {projects:m.projects.sort((a,b)=>a.sort_order-b.sort_order),media:m.media.sort((a,b)=>a.project_id.localeCompare(b.project_id)||a.sort_order-b.sort_order)};};
 
 export default async function handler(req:Req,res:Res){
  const q=params(req);
- if(req.method==='GET'&&q.get('mode')==='public')return send(res,{projects:await publicManifest(),storage:'vercel-blob',neonAvailable:false});
+ if(req.method==='GET'){
+  if(auth(req))return send(res,{...(await adminManifest()),storage:'vercel-blob',neonAvailable:false,notice:'Portfolio data is stored in Vercel Blob. Neon is not used by the live portfolio.'});
+  return send(res,{projects:await publicManifest(),storage:'vercel-blob',neonAvailable:false});
+ }
  if(!auth(req))return send(res,{error:'Unauthorized'},401);
- if(req.method==='GET')return send(res,{...(await adminManifest()),storage:'vercel-blob',neonAvailable:false,notice:'Portfolio data is stored in Vercel Blob. Neon is not used by the live portfolio.'});
  if(req.method!=='POST')return send(res,{error:'Method not allowed'},405);
  const b=body(req);
  try{
