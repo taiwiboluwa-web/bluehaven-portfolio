@@ -1,12 +1,11 @@
 import { neon } from '@neondatabase/serverless';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
-import { safeSlug, validateUpload } from '../src/lib/adminValidation.js';
+import { safeSlug } from '../src/lib/adminValidation.js';
+import { readPortfolioManifest, updatePortfolioManifest } from '../src/lib/blobPortfolioManifest.js';
 
 type Req={method?:string;url?:string;headers?:Record<string,string|undefined>;body?:unknown};
 type Res={status:(n:number)=>Res;setHeader:(n:string,v:string)=>Res;json:(d:unknown)=>void;end:(d?:unknown)=>void};
 type Layout='portrait'|'landscape'|'square';
-const MAX_UPLOAD_BYTES=100*1024*1024;
-const ALLOWED_MIME=new Set(['image/jpeg','image/png','image/webp','image/gif','image/svg+xml']);
 const sql=()=>{if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL is not configured');return neon(process.env.DATABASE_URL)};
 const secret=()=>process.env.BLUEHAVEN_ADMIN_PASSWORD||process.env.ADMIN_PASSWORD||'';
 const cookie=(r:Req)=>r.headers?.cookie||r.headers?.Cookie||'';
@@ -14,63 +13,33 @@ const auth=(r:Req)=>{const raw=cookie(r).match(/(?:^|;\s*)bluehaven_admin=([^;]+
 const body=(r:Req)=>{if(r.body&&typeof r.body==='object')return r.body as Record<string,unknown>;if(typeof r.body==='string'){try{return JSON.parse(r.body)}catch{}}return {}};
 const send=(res:Res,d:unknown,s=200)=>{res.status(s).setHeader('content-type','application/json');res.setHeader('cache-control','no-store');res.json(d)};
 const params=(r:Req)=>new URL(r.url||'/','https://bluehaven.local').searchParams;
-const layoutOf=(value:unknown):Layout=>{const v=typeof value==='object'&&value!==null?String((value as Record<string,unknown>).aspectRatio||''):String(value||'');return v==='portrait'||v==='square'||v==='landscape'?v:'landscape'};
-const isBlobUrl=(value:unknown)=>/^https:\/\/[^\s]+\.blob\.vercel-storage\.com\//.test(String(value||''));
-
-async function visible(db:any){
- const projects=await db`SELECT id,slug,name,category,description,website_url,visible,sort_order,gallery_layout,created_at,updated_at FROM portfolio_projects WHERE visible=true ORDER BY sort_order,created_at DESC`;
- const ids=(projects as any[]).map(p=>p.id);
- const media=ids.length?await db`SELECT id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,file_name,mime_type FROM portfolio_media WHERE project_id=ANY(${ids}) AND file_name IS NOT NULL AND storage_url LIKE 'https://%.blob.vercel-storage.com/%' ORDER BY sort_order,created_at`:[];
- return (projects as any[]).map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout),media:(media as any[]).filter(m=>m.project_id===p.id).filter(m=>isBlobUrl(m.storage_url)).map(m=>({...m,storage_url:String(m.storage_url)}))}));
-}
+const layoutOf=(v:unknown):Layout=>{const x=typeof v==='object'&&v!==null?String((v as any).aspectRatio||''):String(v||'');return x==='portrait'||x==='square'||x==='landscape'?x:'landscape'};
+const isBlobUrl=(v:unknown)=>/^https:\/\/[^\s]+\.blob\.vercel-storage\.com\//.test(String(v||''));
+const publicManifest=async()=>{const m=await readPortfolioManifest();return m.projects.filter(p=>p.visible).sort((a,b)=>a.sort_order-b.sort_order||a.created_at.localeCompare(b.created_at)).map(p=>({...p,media:m.media.filter(x=>x.project_id===p.id).sort((a,b)=>a.sort_order-b.sort_order)}));};
+const adminManifest=async()=>{const m=await readPortfolioManifest();return {projects:m.projects.sort((a,b)=>a.sort_order-b.sort_order),media:m.media.sort((a,b)=>a.project_id.localeCompare(b.project_id)||a.sort_order-b.sort_order)};};
+const seedManifestFromNeon=async(projects:any[],media:any[])=>updatePortfolioManifest(m=>({version:1,projects:projects.map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout),category:String(p.category||'Graphic Design'),description:String(p.description||''),created_at:String(p.created_at),updated_at:String(p.updated_at)})),media:media.filter(x=>isBlobUrl(x.storage_url)).map(x=>({...x,storage_url:String(x.storage_url),storage_key:String(x.storage_key||''),alt_text:String(x.alt_text||''),media_type:'image',file_name:String(x.file_name||'upload'),mime_type:String(x.mime_type||'image/webp')}))}));
 
 export default async function handler(req:Req,res:Res){
+ const q=params(req);
+ if(req.method==='GET'&&q.get('mode')==='public'){
+  try{
+   const db=sql();const projects=await db`SELECT id,slug,name,category,description,website_url,visible,sort_order,gallery_layout,created_at,updated_at FROM portfolio_projects WHERE visible=true ORDER BY sort_order,created_at DESC`;const ids=(projects as any[]).map(p=>p.id);const media=ids.length?await db`SELECT id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,file_name,mime_type FROM portfolio_media WHERE project_id=ANY(${ids}) AND file_name IS NOT NULL AND storage_url LIKE 'https://%.blob.vercel-storage.com/%' ORDER BY sort_order,created_at`:[];await seedManifestFromNeon(projects,media);return send(res,{projects:(projects as any[]).map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout),media:(media as any[]).filter(m=>m.project_id===p.id).map(m=>({...m,storage_url:String(m.storage_url)}))}))});
+  }catch{return send(res,{projects:await publicManifest(),fallback:true,storage:'vercel-blob'})}
+ }
+ if(!auth(req))return send(res,{error:'Unauthorized'},401);
+ if(req.method==='GET'){
+  try{const db=sql();const projects=await db`SELECT id,slug,name,category,description,website_url,visible,sort_order,gallery_layout,created_at,updated_at FROM portfolio_projects ORDER BY sort_order,created_at DESC`;const media=await db`SELECT id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,file_name,mime_type FROM portfolio_media ORDER BY project_id,sort_order,created_at`;await seedManifestFromNeon(projects,media);return send(res,{projects:(projects as any[]).map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout)})),media:(media as any[]).filter(m=>isBlobUrl(m.storage_url)).map(m=>({...m,storage_url:String(m.storage_url)})),storage:'vercel-blob',neonAvailable:true});}catch{return send(res,{...(await adminManifest()),storage:'vercel-blob',neonAvailable:false,notice:'Neon is temporarily unavailable. Changes are being stored in Vercel Blob.'})}
+ }
+ if(req.method!=='POST')return send(res,{error:'Method not allowed'},405);const b=body(req);
  try{
-  const db=sql();const q=params(req);
-  if(req.method==='GET'&&q.get('mode')==='public'){try{return send(res,{projects:await visible(db)})}catch{return send(res,{projects:[],fallback:true})}}
-  if(!auth(req))return send(res,{error:'Unauthorized'},401);
-  if(req.method==='GET'){
-   const projects=await db`SELECT id,slug,name,category,description,website_url,visible,sort_order,gallery_layout,created_at,updated_at FROM portfolio_projects ORDER BY sort_order,created_at DESC`;
-   const media=await db`SELECT id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,file_name,mime_type FROM portfolio_media ORDER BY project_id,sort_order,created_at`;
-   return send(res,{projects:(projects as any[]).map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout)})),media:(media as any[]).filter(m=>isBlobUrl(m.storage_url)).map(m=>({...m,storage_url:String(m.storage_url)}))});
-  }
-  if(req.method!=='POST')return send(res,{error:'Method not allowed'},405);
-  const b=body(req);
-  if(b.action==='create'){
-   const name=String(b.name||'').trim().slice(0,120);if(!name)return send(res,{error:'Project name is required'},400);
-   const layout=layoutOf(b.gallery_layout),id=randomUUID(),slug=safeSlug(String(b.slug||name));
-   const max=await db`SELECT COALESCE(MAX(sort_order),-1) AS max FROM portfolio_projects`,order=Number((max as any[])[0].max)+1;
-   await db`INSERT INTO portfolio_projects(id,slug,name,category,description,website_url,visible,sort_order,gallery_layout,created_at,updated_at) VALUES(${id},${slug},${name},${String(b.category||'Graphic Design').slice(0,80)},${String(b.description||'').slice(0,500)},${b.website_url?String(b.website_url).slice(0,500):null},${b.visible===undefined?true:Boolean(b.visible)},${order},${JSON.stringify({aspectRatio:layout})}::jsonb,NOW(),NOW())`;
-   return send(res,{ok:true,id});
-  }
-  if(b.action==='update'){
-   const layoutValue=String(b.gallery_layout||'landscape');if(!['portrait','square','landscape'].includes(layoutValue))return send(res,{error:'Invalid gallery layout'},400);
-   await db`UPDATE portfolio_projects SET name=${String(b.name||'').trim().slice(0,120)},category=${String(b.category||'').slice(0,80)},description=${String(b.description||'').slice(0,500)},website_url=${b.website_url?String(b.website_url).slice(0,500):null},visible=${Boolean(b.visible)},gallery_layout=${JSON.stringify({aspectRatio:layoutValue})}::jsonb,updated_at=NOW() WHERE id=${String(b.id)}`;
-   return send(res,{ok:true});
-  }
-  if(b.action==='toggle'){await db`UPDATE portfolio_projects SET visible=NOT visible,updated_at=NOW() WHERE id=${String(b.id)}`;return send(res,{ok:true});}
-  if(b.action==='reorder'){
-   const ids=Array.isArray(b.ids)?b.ids.map(String).filter(Boolean).slice(0,100):[];
-   for(let i=0;i<ids.length;i++)await db`UPDATE portfolio_projects SET sort_order=${10000+i},updated_at=NOW() WHERE id=${ids[i]}`;
-   for(let i=0;i<ids.length;i++)await db`UPDATE portfolio_projects SET sort_order=${i},updated_at=NOW() WHERE id=${ids[i]}`;
-   return send(res,{ok:true});
-  }
-  if(b.action==='reorder_media'){
-   const ids=Array.isArray(b.ids)?b.ids.map(String).filter(Boolean).slice(0,100):[];const projectId=String(b.project_id||'');if(!projectId)return send(res,{error:'Project is required'},400);
-   for(let i=0;i<ids.length;i++)await db`UPDATE portfolio_media SET sort_order=${10000+i},featured=${i===0},updated_at=NOW() WHERE id=${ids[i]} AND project_id=${projectId}`;
-   for(let i=0;i<ids.length;i++)await db`UPDATE portfolio_media SET sort_order=${i},featured=${i===0},updated_at=NOW() WHERE id=${ids[i]} AND project_id=${projectId}`;
-   return send(res,{ok:true});
-  }
-  if(b.action==='delete_media'){await db`DELETE FROM portfolio_media WHERE id=${String(b.id)}`;return send(res,{ok:true});}
-  if(b.action==='delete'){await db`DELETE FROM portfolio_projects WHERE id=${String(b.id)}`;return send(res,{ok:true});}
-  if(b.action==='optimize_existing'||b.action==='upload_chunk'||b.action==='finalize_upload'){
-   return send(res,{error:'Legacy database image storage is disabled. Upload through the Vercel Blob upload flow so only the optimized image is stored live.'},410);
-  }
-  if(b.action==='upload'){
-   const m=String(b.data_url||'').match(/^data:([^;]+);base64,(.+)$/s);if(!m)return send(res,{error:'Invalid image data'},400);
-   const bytes=Buffer.from(m[2],'base64');const validation=validateUpload(m[1],bytes.byteLength);if(validation)return send(res,{error:validation},bytes.byteLength>MAX_UPLOAD_BYTES?413:400);
-   return send(res,{error:'Direct database image uploads are disabled. Use the Vercel Blob upload flow.'},410);
-  }
+  if(b.action==='create'){const name=String(b.name||'').trim().slice(0,120);if(!name)return send(res,{error:'Project name is required'},400);const id=randomUUID(),now=new Date().toISOString(),layout=layoutOf(b.gallery_layout);const m=await updatePortfolioManifest(m=>({version:1,projects:[...m.projects,{id,slug:safeSlug(String(b.slug||name)),name,category:String(b.category||'Graphic Design').slice(0,80),description:String(b.description||'').slice(0,500),website_url:b.website_url?String(b.website_url).slice(0,500):null,visible:b.visible===undefined?true:Boolean(b.visible),sort_order:m.projects.length,gallery_layout:layout,created_at:now,updated_at:now}],media:m.media}));try{const db=sql();await db`INSERT INTO portfolio_projects(id,slug,name,category,description,website_url,visible,sort_order,gallery_layout,created_at,updated_at) VALUES(${id},${safeSlug(String(b.slug||name))},${name},${String(b.category||'Graphic Design').slice(0,80)},${String(b.description||'').slice(0,500)},${b.website_url?String(b.website_url).slice(0,500):null},${b.visible===undefined?true:Boolean(b.visible)},${m.projects.length-1},${JSON.stringify({aspectRatio:layout})}::jsonb,NOW(),NOW())`}catch(e){console.warn('Neon create skipped; Blob manifest is authoritative:',e)}return send(res,{ok:true,id,storage:'vercel-blob'});}
+  if(b.action==='update'){const id=String(b.id),layout=layoutOf(b.gallery_layout),now=new Date().toISOString();await updatePortfolioManifest(m=>({...m,projects:m.projects.map(p=>p.id===id?{...p,name:String(b.name||'').trim().slice(0,120),category:String(b.category||'').slice(0,80),description:String(b.description||'').slice(0,500),website_url:b.website_url?String(b.website_url).slice(0,500):null,visible:Boolean(b.visible),gallery_layout:layout,updated_at:now}:p)}));try{const db=sql();await db`UPDATE portfolio_projects SET name=${String(b.name||'').trim().slice(0,120)},category=${String(b.category||'').slice(0,80)},description=${String(b.description||'').slice(0,500)},website_url=${b.website_url?String(b.website_url).slice(0,500):null},visible=${Boolean(b.visible)},gallery_layout=${JSON.stringify({aspectRatio:layout})}::jsonb,updated_at=NOW() WHERE id=${id}`}catch{}return send(res,{ok:true,storage:'vercel-blob'});}
+  if(b.action==='toggle'){const id=String(b.id);await updatePortfolioManifest(m=>({...m,projects:m.projects.map(p=>p.id===id?{...p,visible:!p.visible,updated_at:new Date().toISOString()}:p)}));try{await sql()`UPDATE portfolio_projects SET visible=NOT visible,updated_at=NOW() WHERE id=${id}`}catch{}return send(res,{ok:true});}
+  if(b.action==='reorder'){const ids=Array.isArray(b.ids)?b.ids.map(String):[];await updatePortfolioManifest(m=>({...m,projects:m.projects.map(p=>{const i=ids.indexOf(p.id);return i<0?p:{...p,sort_order:i,updated_at:new Date().toISOString()}})}));try{const db=sql();for(let i=0;i<ids.length;i++)await db`UPDATE portfolio_projects SET sort_order=${i},updated_at=NOW() WHERE id=${ids[i]}`}catch{}return send(res,{ok:true});}
+  if(b.action==='reorder_media'){const ids=Array.isArray(b.ids)?b.ids.map(String):[],projectId=String(b.project_id||'');await updatePortfolioManifest(m=>({...m,media:m.media.map(x=>{const i=ids.indexOf(x.id);return x.project_id===projectId&&i>=0?{...x,sort_order:i,featured:i===0}:x})}));try{const db=sql();for(let i=0;i<ids.length;i++)await db`UPDATE portfolio_media SET sort_order=${i},featured=${i===0},updated_at=NOW() WHERE id=${ids[i]} AND project_id=${projectId}`}catch{}return send(res,{ok:true});}
+  if(b.action==='delete_media'){const id=String(b.id);await updatePortfolioManifest(m=>({...m,media:m.media.filter(x=>x.id!==id)}));try{await sql()`DELETE FROM portfolio_media WHERE id=${id}`}catch{}return send(res,{ok:true});}
+  if(b.action==='delete'){const id=String(b.id);await updatePortfolioManifest(m=>({...m,projects:m.projects.filter(x=>x.id!==id),media:m.media.filter(x=>x.project_id!==id)}));try{await sql()`DELETE FROM portfolio_projects WHERE id=${id}`}catch{}return send(res,{ok:true});}
+  if(b.action==='upload'||b.action==='optimize_existing'||b.action==='upload_chunk'||b.action==='finalize_upload')return send(res,{error:'Use the Vercel Blob upload flow. Live image bytes are never stored in Neon.',storage:'vercel-blob'},410);
   return send(res,{error:'Unknown action'},400);
  }catch(e){console.error('BlueHaven portfolio API error:',e);return send(res,{error:e instanceof Error?e.message:'Server error'},500)}
 }
