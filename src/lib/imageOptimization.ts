@@ -17,6 +17,10 @@ function scaledSize(width: number, height: number) {
   return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
 }
 
+export async function optimizeImageFile(file: File): Promise<File> {
+  return (await optimizeImageForUpload(file)).file;
+}
+
 export async function optimizeImageForUpload(file: File): Promise<{ file: File; originalBytes: number; optimizedBytes: number }> {
   if (file.size > MAX_INPUT_IMAGE_BYTES) throw new Error(`${file.name} is larger than 100MB.`);
   const plan = getOptimizationPlan(file.type);
@@ -61,8 +65,8 @@ export function installAdminImageOptimization() {
   const original = readerPrototype.readAsDataURL;
   readerPrototype.readAsDataURL = function (blob: Blob) {
     if (!blob.type.startsWith('image/') || blob.type === 'image/svg+xml' || blob.type === 'image/gif') return original.call(this, blob);
-    optimizeImageForUpload(blob instanceof File ? blob : new File([blob], 'upload', { type: blob.type }))
-      .then(result => original.call(this, result.file))
+    optimizeImageFile(blob instanceof File ? blob : new File([blob], 'upload', { type: blob.type }))
+      .then(result => original.call(this, result))
       .catch(() => original.call(this, blob));
   };
   readerPrototype.__blueHavenOptimized = true;
