@@ -18,14 +18,9 @@ function scaledSize(width: number, height: number) {
 }
 
 export async function optimizeImageForUpload(file: File): Promise<{ file: File; originalBytes: number; optimizedBytes: number }> {
-  if (file.size > MAX_INPUT_IMAGE_BYTES) {
-    throw new Error(`${file.name} is larger than 100MB.`);
-  }
-
+  if (file.size > MAX_INPUT_IMAGE_BYTES) throw new Error(`${file.name} is larger than 100MB.`);
   const plan = getOptimizationPlan(file.type);
-  if (plan.outputMime !== 'image/webp') {
-    return { file, originalBytes: file.size, optimizedBytes: file.size };
-  }
+  if (plan.outputMime !== 'image/webp') return { file, originalBytes: file.size, optimizedBytes: file.size };
 
   let bitmap: ImageBitmap | null = null;
   let objectUrl: string | null = null;
@@ -39,7 +34,6 @@ export async function optimizeImageForUpload(file: File): Promise<{ file: File; 
       await image.decode();
       bitmap = await createImageBitmap(image);
     }
-
     const size = scaledSize(bitmap.width, bitmap.height);
     const canvas = document.createElement('canvas');
     canvas.width = size.width;
@@ -47,24 +41,29 @@ export async function optimizeImageForUpload(file: File): Promise<{ file: File; 
     const context = canvas.getContext('2d', { alpha: true });
     if (!context) throw new Error('Image processing is not supported in this browser.');
     context.drawImage(bitmap, 0, 0, size.width, size.height);
-
     const optimizedBlob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Could not optimize image.')), plan.outputMime, plan.quality);
     });
-
-    // Never make an already-small source larger just because it was converted.
-    if (optimizedBlob.size >= file.size) {
-      return { file, originalBytes: file.size, optimizedBytes: file.size };
-    }
-
+    if (optimizedBlob.size >= file.size) return { file, originalBytes: file.size, optimizedBytes: file.size };
     const baseName = file.name.replace(/\.[^.]+$/, '') || 'image';
-    const optimizedFile = new File([optimizedBlob], `${baseName}.webp`, {
-      type: plan.outputMime,
-      lastModified: file.lastModified,
-    });
+    const optimizedFile = new File([optimizedBlob], `${baseName}.webp`, { type: plan.outputMime, lastModified: file.lastModified });
     return { file: optimizedFile, originalBytes: file.size, optimizedBytes: optimizedFile.size };
   } finally {
     bitmap?.close();
     if (objectUrl) URL.revokeObjectURL(objectUrl);
   }
+}
+
+export function installAdminImageOptimization() {
+  if (typeof FileReader === 'undefined') return;
+  const readerPrototype = FileReader.prototype as FileReader & { __blueHavenOptimized?: boolean };
+  if (readerPrototype.__blueHavenOptimized) return;
+  const original = readerPrototype.readAsDataURL;
+  readerPrototype.readAsDataURL = function (blob: Blob) {
+    if (!blob.type.startsWith('image/') || blob.type === 'image/svg+xml' || blob.type === 'image/gif') return original.call(this, blob);
+    optimizeImageForUpload(blob instanceof File ? blob : new File([blob], 'upload', { type: blob.type }))
+      .then(result => original.call(this, result.file))
+      .catch(() => original.call(this, blob));
+  };
+  readerPrototype.__blueHavenOptimized = true;
 }
