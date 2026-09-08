@@ -16,15 +16,6 @@ const body=(r:Req)=>{if(r.body&&typeof r.body==='object')return r.body as Record
 const send=(res:Res,d:unknown,s=200)=>{res.status(s).setHeader('content-type','application/json');res.setHeader('cache-control','no-store');res.json(d)};
 const params=(r:Req)=>new URL(r.url||'/','https://bluehaven.local').searchParams;
 const layoutOf=(value:unknown):Layout=>{const v=typeof value==='object'&&value!==null?String((value as Record<string,unknown>).aspectRatio||''):String(value||'');return v==='portrait'||v==='square'||v==='landscape'?v:'landscape'};
-const safeFile=(name:string)=>name.replace(/[^a-zA-Z0-9._-]+/g,'-').slice(-120)||'upload';
-const decodeDataUrl=(value:unknown)=>{const m=String(value||'').match(/^data:([^;]+);base64,(.+)$/s);if(!m)throw new Error('Invalid image data');return {mime:m[1],bytes:Buffer.from(m[2],'base64')}};
-
-async function optimizeForNeon(originalName:string,mime:string,bytes:Buffer){
- const optimized=await optimizeImage(bytes,mime);
- const base=safeFile(originalName.replace(/\.[^.]+$/,''));
- const fileName=safeFile(`${base}.${optimized.extension}`);
- return {optimized,fileName};
-}
 
 async function visible(db:any){
  const projects=await db`SELECT id,slug,name,category,description,website_url,visible,sort_order,gallery_layout,created_at,updated_at FROM portfolio_projects WHERE visible=true ORDER BY sort_order,created_at DESC`;
@@ -72,52 +63,20 @@ export default async function handler(req:Req,res:Res){
   }
   if(b.action==='delete_media'){await db`DELETE FROM portfolio_media WHERE id=${String(b.id)}`;return send(res,{ok:true});}
   if(b.action==='delete'){await db`DELETE FROM portfolio_projects WHERE id=${String(b.id)}`;return send(res,{ok:true});}
-  if(b.action==='optimize_existing'){
-   const id=String(b.id||'');if(!id)return send(res,{error:'Media id is required'},400);
-   const rows=await db`SELECT id,project_id,file_name,mime_type,file_data FROM portfolio_media WHERE id=${id} AND file_name IS NOT NULL LIMIT 1` as any[];
-   if(!rows[0])return send(res,{error:'Media not found'},404);
-   let mime=String(rows[0].mime_type||'');let bytes=rows[0].file_data instanceof Uint8Array?Buffer.from(rows[0].file_data):Buffer.from(rows[0].file_data||'');
-   if(b.data_url){const decoded=decodeDataUrl(b.data_url);mime=decoded.mime;bytes=decoded.bytes}
-   const validation=validateUpload(mime,bytes.byteLength);if(validation)return send(res,{error:validation},bytes.byteLength>MAX_UPLOAD_BYTES?413:400);
-   const saved=await optimizeForNeon(String(rows[0].file_name),mime,bytes);
-   await db`UPDATE portfolio_media SET file_data=${saved.optimized.bytes},file_name=${saved.fileName},mime_type=${saved.optimized.mime},storage_url=${`/api/media?id=${id}`},storage_key=${id},updated_at=NOW() WHERE id=${id}`;
-   return send(res,{ok:true,changed:true,id,url:`/api/media?id=${id}`,bytes:saved.optimized.bytes.byteLength,previous_bytes:bytes.byteLength});
+
+  // Live media must be stored in Vercel Blob. This legacy action intentionally
+  // does not write image bytes to Postgres anymore; the admin client upload path
+  // in /api/blob-upload handles optimization + Blob storage.
+  if(b.action==='optimize_existing'||b.action==='upload_chunk'||b.action==='finalize_upload'){
+   return send(res,{error:'Legacy database image storage is disabled. Upload through the Vercel Blob upload flow so only the optimized image is stored live.'},410);
   }
-  if(b.action==='upload_chunk'){
-   const uploadId=String(b.upload_id||''),projectId=String(b.project_id||''),chunkIndex=Number(b.chunk_index),totalChunks=Number(b.total_chunks),totalSize=Number(b.total_size);
-   if(!uploadId||!projectId||!Number.isInteger(chunkIndex)||!Number.isInteger(totalChunks)||chunkIndex<0||chunkIndex>=totalChunks||totalChunks<1||totalSize<1||totalSize>MAX_UPLOAD_BYTES)return send(res,{error:'Invalid upload metadata'},400);
-   const {mime,bytes}=decodeDataUrl(b.data_url);if(bytes.length===0)return send(res,{error:'Empty upload chunk'},400);if(!ALLOWED_MIME.has(mime))return send(res,{error:'Unsupported image type'},400);
-   const exists=await db`SELECT id FROM portfolio_projects WHERE id=${projectId} LIMIT 1`;if(!(exists as any[])[0])return send(res,{error:'Project not found'},404);
-   if(chunkIndex===0){
-    await db`INSERT INTO portfolio_media(id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,created_at,updated_at,file_data,file_name,mime_type) VALUES(${uploadId},${projectId},${`/api/media?id=${uploadId}`},${uploadId},${String(b.alt_text||'BlueHaven Studio work').slice(0,180)},'image',-1,false,NOW(),NOW(),${bytes},NULL,${mime}) ON CONFLICT (id) DO UPDATE SET file_data=EXCLUDED.file_data,mime_type=EXCLUDED.mime_type,storage_url=EXCLUDED.storage_url,storage_key=EXCLUDED.storage_key,updated_at=NOW()`;
-   }else{
-    const updated=await db`UPDATE portfolio_media SET file_data=COALESCE(file_data,decode('','hex')) || ${bytes},updated_at=NOW() WHERE id=${uploadId} AND project_id=${projectId} AND file_name IS NULL RETURNING id`;
-    if(!(updated as any[])[0])return send(res,{error:'Upload session not found'},409);
-   }
-   return send(res,{ok:true,chunk_index:chunkIndex,total_chunks:totalChunks});
-  }
-  if(b.action==='finalize_upload'){
-   const uploadId=String(b.upload_id||''),projectId=String(b.project_id||''),originalName=safeFile(String(b.file_name||'upload')),mime=String(b.mime_type||''),totalSize=Number(b.total_size);
-   if(!uploadId||!projectId||!originalName||totalSize<1||totalSize>MAX_UPLOAD_BYTES)return send(res,{error:'Invalid upload metadata'},400);
-   if(!ALLOWED_MIME.has(mime))return send(res,{error:'Unsupported image type'},400);
-   const rows=await db`SELECT file_data,alt_text FROM portfolio_media WHERE id=${uploadId} AND project_id=${projectId} AND file_name IS NULL LIMIT 1` as any[];
-   if(!rows[0])return send(res,{error:'Upload session not found'},404);
-   const bytes=rows[0].file_data instanceof Uint8Array?Buffer.from(rows[0].file_data):Buffer.from(rows[0].file_data||'');
-   if(bytes.byteLength!==totalSize)return send(res,{error:`Upload incomplete: received ${bytes.byteLength} of ${totalSize} bytes`},409);
-   const saved=await optimizeForNeon(originalName,mime,bytes);
-   const next=await db`SELECT COALESCE(MAX(sort_order),-1) AS max FROM portfolio_media WHERE project_id=${projectId} AND file_name IS NOT NULL`,order=Number((next as any[])[0].max)+1;
-   await db`UPDATE portfolio_media SET file_data=${saved.optimized.bytes},file_name=${saved.fileName},mime_type=${saved.optimized.mime},sort_order=${order},featured=${order===0},storage_url=${`/api/media?id=${uploadId}`},storage_key=${uploadId},updated_at=NOW() WHERE id=${uploadId} AND project_id=${projectId}`;
-   return send(res,{ok:true,id:uploadId,url:`/api/media?id=${uploadId}`,bytes:saved.optimized.bytes.byteLength,original_bytes:totalSize,optimized:true});
-  }
+
+  // Kept as a compatibility response for clients that have not yet switched to
+  // the Blob bridge. No image bytes are ever persisted in portfolio_media.file_data.
   if(b.action==='upload'){
-   const {mime,bytes}=decodeDataUrl(b.data_url);const validation=validateUpload(mime,bytes.byteLength);if(validation)return send(res,{error:validation},bytes.byteLength>MAX_UPLOAD_BYTES?413:400);
-   const id=randomUUID(),projectId=String(b.project_id);const exists=await db`SELECT id FROM portfolio_projects WHERE id=${projectId} LIMIT 1`;if(!(exists as any[])[0])return send(res,{error:'Project not found'},404);
-   const next=await db`SELECT COALESCE(MAX(sort_order),-1) AS max FROM portfolio_media WHERE project_id=${projectId} AND file_name IS NOT NULL`,order=Number((next as any[])[0].max)+1;
-   const originalName=safeFile(String(b.file_name||`upload-${id}`));
-   const saved=await optimizeForNeon(originalName,mime,bytes);
-   const mediaUrl=`/api/media?id=${id}`;
-   await db`INSERT INTO portfolio_media(id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,created_at,updated_at,file_data,file_name,mime_type) VALUES(${id},${projectId},${mediaUrl},${id},${String(b.alt_text||'Bluehaven Studio work').slice(0,180)},'image',${order},${order===0},NOW(),NOW(),${saved.optimized.bytes},${saved.fileName},${saved.optimized.mime})`;
-   return send(res,{ok:true,id,url:mediaUrl,bytes:saved.optimized.bytes.byteLength,original_bytes:bytes.byteLength,optimized:true});
+   const {mime,bytes}=(()=>{const m=String(b.data_url||'').match(/^data:([^;]+);base64,(.+)$/s);if(!m)throw new Error('Invalid image data');return {mime:m[1],bytes:Buffer.from(m[2],'base64')}})();
+   const validation=validateUpload(mime,bytes.byteLength);if(validation)return send(res,{error:validation},bytes.byteLength>MAX_UPLOAD_BYTES?413:400);
+   return send(res,{error:'Direct database image uploads are disabled. Use the Vercel Blob upload flow.'},410);
   }
   return send(res,{error:'Unknown action'},400);
  }catch(e){console.error('BlueHaven portfolio API error:',e);return send(res,{error:e instanceof Error?e.message:'Server error'},500)}
