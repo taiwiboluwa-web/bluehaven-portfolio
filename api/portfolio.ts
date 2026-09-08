@@ -4,6 +4,7 @@ import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { safeSlug, validateUpload } from '../src/lib/adminValidation.js';
 import { optimizeImage } from '../src/lib/imageOptimizer.js';
 
+// Uploads may be large at intake, but only optimized output is persisted permanently.
 type Req={method?:string;url?:string;headers?:Record<string,string|undefined>;body?:unknown};
 type Res={status:(n:number)=>Res;setHeader:(n:string,v:string)=>Res;json:(d:unknown)=>void;end:(d?:unknown)=>void};
 type Layout='portrait'|'landscape'|'square';
