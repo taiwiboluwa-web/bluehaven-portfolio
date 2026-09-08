@@ -10,8 +10,6 @@ function decodedBase64Bytes(base64: string) {
   return Math.floor(base64.length * 3 / 4) - padding;
 }
 
-// Keep portfolio uploads on Vercel Blob. Neon is metadata/archive only and must never
-// make an otherwise successful media upload fail when its quota is exhausted.
 window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
 
@@ -24,15 +22,9 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Res
           const mime = match[1];
           const base64 = match[2];
           const totalSize = decodedBase64Bytes(base64);
+          if (totalSize > MAX_UPLOAD_BYTES) return new Response(JSON.stringify({ error: 'Image must be 100MB or smaller' }), { status: 413, headers: { 'content-type': 'application/json' } });
 
-          if (totalSize > MAX_UPLOAD_BYTES) {
-            return new Response(JSON.stringify({ error: 'Image must be 100MB or smaller' }), {
-              status: 413,
-              headers: { 'content-type': 'application/json' },
-            });
-          }
-
-          const sourceBlob = await (await fetch(payload.data_url)).blob();
+          const sourceBlob = await (await nativeFetch(payload.data_url)).blob();
           const mediaId = crypto.randomUUID();
           const blob = await upload(
             `portfolio-upload-${mediaId}.${String(payload.file_name || 'upload').split('.').pop() || 'img'}`,
@@ -52,18 +44,30 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Res
             },
           );
 
-          return new Response(JSON.stringify({ ok: true, id: mediaId, url: blob.url, optimized: true }), {
-            status: 200,
+          // Explicitly finalize after the Blob upload. This guarantees the portfolio
+          // manifest is updated even if the asynchronous Blob completion callback is delayed.
+          const finalized = await nativeFetch('/api/blob-upload', {
+            method: 'POST',
             headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              action: 'finalize',
+              blob_url: blob.url,
+              mediaId,
+              projectId: String(payload.project_id),
+              fileName: String(payload.file_name || 'upload'),
+              mimeType: mime,
+              altText: String(payload.alt_text || 'BlueHaven Studio work'),
+            }),
           });
+          const finalizeData = await finalized.json();
+          if (!finalized.ok || !finalizeData?.ok) throw new Error(finalizeData?.error || 'Image uploaded but could not be registered in the portfolio');
+
+          return new Response(JSON.stringify({ ok: true, id: mediaId, url: finalizeData.url || blob.url, optimized: true }), { status: 200, headers: { 'content-type': 'application/json' } });
         }
       }
     } catch (error) {
       console.error('BlueHaven upload bridge error:', error);
-      return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Upload failed' }), {
-        status: 400,
-        headers: { 'content-type': 'application/json' },
-      });
+      return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Upload failed' }), { status: 400, headers: { 'content-type': 'application/json' } });
     }
   }
 
