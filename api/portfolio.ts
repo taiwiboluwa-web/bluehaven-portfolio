@@ -1,15 +1,18 @@
 import { neon } from '@neondatabase/serverless';
+import { put } from '@vercel/blob';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { safeSlug, validateUpload } from '../src/lib/adminValidation.js';
+import { optimizeImage } from '../src/lib/imageOptimizer.js';
 
 type Req={method?:string;url?:string;headers?:Record<string,string|undefined>;body?:unknown};
 type Res={status:(n:number)=>Res;setHeader:(n:string,v:string)=>Res;json:(d:unknown)=>void;end:(d?:unknown)=>void};
 type Layout='portrait'|'landscape'|'square';
-const MAX_UPLOAD_BYTES=20*1024*1024;
-const NEON_MEDIA_URL='';
+const MAX_UPLOAD_BYTES=100*1024*1024;
+const ALLOWED_MIME=new Set(['image/jpeg','image/png','image/webp','image/gif','image/svg+xml']);
 
 const sql=()=>{if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL is not configured');return neon(process.env.DATABASE_URL)};
 const secret=()=>process.env.BLUEHAVEN_ADMIN_PASSWORD||process.env.ADMIN_PASSWORD||'';
+const blobReady=()=>{if(!process.env.BLOB_READ_WRITE_TOKEN)throw new Error('Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN to the BlueHaven Vercel project.')};
 const cookie=(r:Req)=>r.headers?.cookie||r.headers?.Cookie||'';
 const auth=(r:Req)=>{const raw=cookie(r).match(/(?:^|;\s*)bluehaven_admin=([^;]+)/)?.[1];if(!raw||!secret())return false;const p=raw.split('.');if(p.length!==3)return false;const e=Buffer.from(createHmac('sha256',secret()).update(`${p[0]}.${p[1]}`).digest('base64url')),a=Buffer.from(p[2]);return a.length===e.length&&timingSafeEqual(a,e)};
 const body=(r:Req)=>{if(r.body&&typeof r.body==='object')return r.body as Record<string,unknown>;if(typeof r.body==='string'){try{return JSON.parse(r.body)}catch{}}return {}};
@@ -19,11 +22,21 @@ const layoutOf=(value:unknown):Layout=>{const v=typeof value==='object'&&value!=
 const safeFile=(name:string)=>name.replace(/[^a-zA-Z0-9._-]+/g,'-').slice(-120)||'upload';
 const decodeDataUrl=(value:unknown)=>{const m=String(value||'').match(/^data:([^;]+);base64,(.+)$/s);if(!m)throw new Error('Invalid image data');return {mime:m[1],bytes:Buffer.from(m[2],'base64')}};
 
+async function saveOptimized(id:string,projectId:string,originalName:string,mime:string,bytes:Buffer){
+ blobReady();
+ const optimized=await optimizeImage(bytes,mime);
+ const base=safeFile(originalName.replace(/\.[^.]+$/,''));
+ const fileName=safeFile(`${base}.${optimized.extension}`);
+ const pathname=`portfolio/${projectId}/${id}-${fileName}`;
+ const blob=await put(pathname,optimized.bytes,{access:'public',contentType:optimized.mime,addRandomSuffix:false});
+ return {blob,optimized,fileName};
+}
+
 async function visible(db:any){
  const projects=await db`SELECT id,slug,name,category,description,website_url,visible,sort_order,gallery_layout,created_at,updated_at FROM portfolio_projects WHERE visible=true ORDER BY sort_order,created_at DESC`;
  const ids=(projects as any[]).map(p=>p.id);
  const media=ids.length?await db`SELECT id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,file_name,mime_type FROM portfolio_media WHERE project_id=ANY(${ids}) AND file_name IS NOT NULL ORDER BY sort_order,created_at`:[];
- return (projects as any[]).map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout),media:(media as any[]).filter(m=>m.project_id===p.id).map(m=>({...m,storage_url:m.file_name?`/api/media?id=${m.id}`:m.storage_url}))}));
+ return (projects as any[]).map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout),media:(media as any[]).filter(m=>m.project_id===p.id).map(m=>({...m,storage_url:m.storage_url||`/api/media?id=${m.id}`}))}));
 }
 
 export default async function handler(req:Req,res:Res){
@@ -34,7 +47,7 @@ export default async function handler(req:Req,res:Res){
   if(req.method==='GET'){
    const projects=await db`SELECT id,slug,name,category,description,website_url,visible,sort_order,gallery_layout,created_at,updated_at FROM portfolio_projects ORDER BY sort_order,created_at DESC`;
    const media=await db`SELECT id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,file_name,mime_type FROM portfolio_media ORDER BY project_id,sort_order,created_at`;
-   return send(res,{projects:(projects as any[]).map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout)})),media:(media as any[]).map(m=>({...m,storage_url:m.file_name?`/api/media?id=${m.id}`:m.storage_url}))});
+   return send(res,{projects:(projects as any[]).map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout)})),media:(media as any[]).map(m=>({...m,storage_url:m.storage_url||`/api/media?id=${m.id}`}))});
   }
   if(req.method!=='POST')return send(res,{error:'Method not allowed'},405);
   const b=body(req);
@@ -67,25 +80,22 @@ export default async function handler(req:Req,res:Res){
   if(b.action==='delete'){await db`DELETE FROM portfolio_projects WHERE id=${String(b.id)}`;return send(res,{ok:true});}
   if(b.action==='optimize_existing'){
    const id=String(b.id||'');if(!id)return send(res,{error:'Media id is required'},400);
-   const {mime,bytes}=decodeDataUrl(b.data_url);
-   const validation=validateUpload(mime,bytes.byteLength);if(validation)return send(res,{error:validation},bytes.byteLength>MAX_UPLOAD_BYTES?413:400);
-   const rows=await db`SELECT id,file_name,mime_type,octet_length(file_data) AS bytes FROM portfolio_media WHERE id=${id} AND file_name IS NOT NULL LIMIT 1` as any[];
+   const rows=await db`SELECT id,project_id,file_name,mime_type,file_data FROM portfolio_media WHERE id=${id} AND file_name IS NOT NULL LIMIT 1` as any[];
    if(!rows[0])return send(res,{error:'Media not found'},404);
-   if(bytes.byteLength>=Number(rows[0].bytes))return send(res,{ok:true,changed:false,reason:'optimized file was not smaller'});
-   const originalName=String(rows[0].file_name||'upload');
-   const base=originalName.replace(/\.[^.]+$/,'');
-   const fileName=mime==='image/webp'?safeFile(`${base}.webp`):originalName;
-   await db`UPDATE portfolio_media SET file_data=${bytes},file_name=${fileName},mime_type=${mime},storage_url=${`/api/media?id=${id}`},storage_key=${id},updated_at=NOW() WHERE id=${id}`;
-   return send(res,{ok:true,changed:true,id,url:`/api/media?id=${id}`,bytes:bytes.byteLength,previous_bytes:Number(rows[0].bytes)});
+   let mime=String(rows[0].mime_type||'');let bytes=rows[0].file_data instanceof Uint8Array?Buffer.from(rows[0].file_data):Buffer.from(rows[0].file_data||'');
+   if(b.data_url){const decoded=decodeDataUrl(b.data_url);mime=decoded.mime;bytes=decoded.bytes}
+   const validation=validateUpload(mime,bytes.byteLength);if(validation)return send(res,{error:validation},bytes.byteLength>MAX_UPLOAD_BYTES?413:400);
+   const saved=await saveOptimized(id,String(rows[0].project_id),String(rows[0].file_name),mime,bytes);
+   await db`UPDATE portfolio_media SET file_data=NULL,file_name=${saved.fileName},mime_type=${saved.optimized.mime},storage_url=${saved.blob.url},storage_key=${saved.blob.pathname},updated_at=NOW() WHERE id=${id}`;
+   return send(res,{ok:true,changed:true,id,url:saved.blob.url,bytes:saved.optimized.bytes.byteLength,previous_bytes:bytes.byteLength});
   }
   if(b.action==='upload_chunk'){
-   const uploadId=String(b.upload_id||''),projectId=String(b.project_id||''),chunkIndex=Number(b.chunk_index),totalChunks=Number(b.total_chunks),totalSize=Number(b.total_size),fileName=safeFile(String(b.file_name||'upload'));
-   if(!uploadId||!projectId||!Number.isInteger(chunkIndex)||!Number.isInteger(totalChunks)||chunkIndex<0||chunkIndex>=totalChunks||totalChunks<1||totalSize<1||totalSize>100*1024*1024)return send(res,{error:'Invalid upload metadata'},400);
-   const {mime,bytes}=decodeDataUrl(b.data_url);if(bytes.length===0)return send(res,{error:'Empty upload chunk'},400);if(!['image/jpeg','image/png','image/webp','image/gif','image/svg+xml'].includes(mime))return send(res,{error:'Unsupported image type'},400);
+   const uploadId=String(b.upload_id||''),projectId=String(b.project_id||''),chunkIndex=Number(b.chunk_index),totalChunks=Number(b.total_chunks),totalSize=Number(b.total_size);
+   if(!uploadId||!projectId||!Number.isInteger(chunkIndex)||!Number.isInteger(totalChunks)||chunkIndex<0||chunkIndex>=totalChunks||totalChunks<1||totalSize<1||totalSize>MAX_UPLOAD_BYTES)return send(res,{error:'Invalid upload metadata'},400);
+   const {mime,bytes}=decodeDataUrl(b.data_url);if(bytes.length===0)return send(res,{error:'Empty upload chunk'},400);if(!ALLOWED_MIME.has(mime))return send(res,{error:'Unsupported image type'},400);
    const exists=await db`SELECT id FROM portfolio_projects WHERE id=${projectId} LIMIT 1`;if(!(exists as any[])[0])return send(res,{error:'Project not found'},404);
-   const mediaUrl=`/api/media?id=${uploadId}`;
    if(chunkIndex===0){
-    await db`INSERT INTO portfolio_media(id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,created_at,updated_at,file_data,file_name,mime_type) VALUES(${uploadId},${projectId},${mediaUrl},${uploadId},${String(b.alt_text||'BlueHaven Studio work').slice(0,180)},'image',-1,false,NOW(),NOW(),${bytes},NULL,${mime}) ON CONFLICT (id) DO UPDATE SET file_data=EXCLUDED.file_data,mime_type=EXCLUDED.mime_type,storage_url=EXCLUDED.storage_url,storage_key=EXCLUDED.storage_key,updated_at=NOW()`;
+    await db`INSERT INTO portfolio_media(id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,created_at,updated_at,file_data,file_name,mime_type) VALUES(${uploadId},${projectId},${`/api/media?id=${uploadId}`},${uploadId},${String(b.alt_text||'BlueHaven Studio work').slice(0,180)},'image',-1,false,NOW(),NOW(),${bytes},NULL,${mime}) ON CONFLICT (id) DO UPDATE SET file_data=EXCLUDED.file_data,mime_type=EXCLUDED.mime_type,storage_url=EXCLUDED.storage_url,storage_key=EXCLUDED.storage_key,updated_at=NOW()`;
    }else{
     const updated=await db`UPDATE portfolio_media SET file_data=COALESCE(file_data,decode('','hex')) || ${bytes},updated_at=NOW() WHERE id=${uploadId} AND project_id=${projectId} AND file_name IS NULL RETURNING id`;
     if(!(updated as any[])[0])return send(res,{error:'Upload session not found'},409);
@@ -93,23 +103,27 @@ export default async function handler(req:Req,res:Res){
    return send(res,{ok:true,chunk_index:chunkIndex,total_chunks:totalChunks});
   }
   if(b.action==='finalize_upload'){
-   const uploadId=String(b.upload_id||''),projectId=String(b.project_id||''),fileName=safeFile(String(b.file_name||'upload')),mime=String(b.mime_type||''),totalSize=Number(b.total_size);
-   if(!uploadId||!projectId||!fileName||totalSize<1||totalSize>100*1024*1024)return send(res,{error:'Invalid upload metadata'},400);
-   if(!['image/jpeg','image/png','image/webp','image/gif','image/svg+xml'].includes(mime))return send(res,{error:'Unsupported image type'},400);
-   const rows=await db`SELECT octet_length(file_data) AS bytes FROM portfolio_media WHERE id=${uploadId} AND project_id=${projectId} AND file_name IS NULL LIMIT 1` as any[];
+   const uploadId=String(b.upload_id||''),projectId=String(b.project_id||''),originalName=safeFile(String(b.file_name||'upload')),mime=String(b.mime_type||''),totalSize=Number(b.total_size);
+   if(!uploadId||!projectId||!originalName||totalSize<1||totalSize>MAX_UPLOAD_BYTES)return send(res,{error:'Invalid upload metadata'},400);
+   if(!ALLOWED_MIME.has(mime))return send(res,{error:'Unsupported image type'},400);
+   const rows=await db`SELECT file_data,alt_text FROM portfolio_media WHERE id=${uploadId} AND project_id=${projectId} AND file_name IS NULL LIMIT 1` as any[];
    if(!rows[0])return send(res,{error:'Upload session not found'},404);
-   if(Number(rows[0].bytes)!==totalSize)return send(res,{error:`Upload incomplete: received ${Number(rows[0].bytes)} of ${totalSize} bytes`},409);
+   const bytes=rows[0].file_data instanceof Uint8Array?Buffer.from(rows[0].file_data):Buffer.from(rows[0].file_data||'');
+   if(bytes.byteLength!==totalSize)return send(res,{error:`Upload incomplete: received ${bytes.byteLength} of ${totalSize} bytes`},409);
+   const saved=await saveOptimized(uploadId,projectId,originalName,mime,bytes);
    const next=await db`SELECT COALESCE(MAX(sort_order),-1) AS max FROM portfolio_media WHERE project_id=${projectId} AND file_name IS NOT NULL`,order=Number((next as any[])[0].max)+1;
-   await db`UPDATE portfolio_media SET file_name=${fileName},mime_type=${mime},sort_order=${order},featured=${order===0},storage_url=${`/api/media?id=${uploadId}`},storage_key=${uploadId},updated_at=NOW() WHERE id=${uploadId} AND project_id=${projectId}`;
-   return send(res,{ok:true,id:uploadId,url:`/api/media?id=${uploadId}`});
+   await db`UPDATE portfolio_media SET file_data=NULL,file_name=${saved.fileName},mime_type=${saved.optimized.mime},sort_order=${order},featured=${order===0},storage_url=${saved.blob.url},storage_key=${saved.blob.pathname},updated_at=NOW() WHERE id=${uploadId} AND project_id=${projectId}`;
+   return send(res,{ok:true,id:uploadId,url:saved.blob.url,bytes:saved.optimized.bytes.byteLength,original_bytes:totalSize,optimized:true});
   }
   if(b.action==='upload'){
    const {mime,bytes}=decodeDataUrl(b.data_url);const validation=validateUpload(mime,bytes.byteLength);if(validation)return send(res,{error:validation},bytes.byteLength>MAX_UPLOAD_BYTES?413:400);
    const id=randomUUID(),projectId=String(b.project_id);const exists=await db`SELECT id FROM portfolio_projects WHERE id=${projectId} LIMIT 1`;if(!(exists as any[])[0])return send(res,{error:'Project not found'},404);
-   const next=await db`SELECT COALESCE(MAX(sort_order),-1) AS max FROM portfolio_media WHERE project_id=${projectId}`,order=Number((next as any[])[0].max)+1;
-   const fileName=safeFile(String(b.file_name||`upload-${id}`)),mediaUrl=`/api/media?id=${id}`;
-   await db`INSERT INTO portfolio_media(id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,created_at,updated_at,file_data,file_name,mime_type) VALUES(${id},${projectId},${mediaUrl},${id},${String(b.alt_text||'Bluehaven Studio work').slice(0,180)},'image',${order},${order===0},NOW(),NOW(),${bytes},${fileName},${mime})`;
-   return send(res,{ok:true,id,url:mediaUrl});
+   const next=await db`SELECT COALESCE(MAX(sort_order),-1) AS max FROM portfolio_media WHERE project_id=${projectId} AND file_name IS NOT NULL`,order=Number((next as any[])[0].max)+1;
+   const originalName=safeFile(String(b.file_name||`upload-${id}`));
+   const saved=await saveOptimized(id,projectId,originalName,mime,bytes);
+   const mediaUrl=saved.blob.url;
+   await db`INSERT INTO portfolio_media(id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,created_at,updated_at,file_data,file_name,mime_type) VALUES(${id},${projectId},${mediaUrl},${saved.blob.pathname},${String(b.alt_text||'Bluehaven Studio work').slice(0,180)},'image',${order},${order===0},NOW(),NOW(),NULL,${saved.fileName},${saved.optimized.mime})`;
+   return send(res,{ok:true,id,url:mediaUrl,bytes:saved.optimized.bytes.byteLength,original_bytes:bytes.byteLength,optimized:true});
   }
   return send(res,{error:'Unknown action'},400);
  }catch(e){console.error('BlueHaven portfolio API error:',e);return send(res,{error:e instanceof Error?e.message:'Server error'},500)}
