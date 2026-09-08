@@ -46,7 +46,7 @@ export default async function handler(req:Req,res:Res){
    return send(res,{ok:true,id});
   }
   if(b.action==='update'){
-   const layoutValue=String(b.gallery_layout||'landscape');if(!['portrait','landscape','square'].includes(layoutValue))return send(res,{error:'Invalid gallery layout'},400);
+   const layoutValue=String(b.gallery_layout||'landscape');if(!['portrait','square','landscape'].includes(layoutValue))return send(res,{error:'Invalid gallery layout'},400);
    await db`UPDATE portfolio_projects SET name=${String(b.name||'').trim().slice(0,120)},category=${String(b.category||'').slice(0,80)},description=${String(b.description||'').slice(0,500)},website_url=${b.website_url?String(b.website_url).slice(0,500):null},visible=${Boolean(b.visible)},gallery_layout=${JSON.stringify({aspectRatio:layoutValue})}::jsonb,updated_at=NOW() WHERE id=${String(b.id)}`;
    return send(res,{ok:true});
   }
@@ -65,9 +65,22 @@ export default async function handler(req:Req,res:Res){
   }
   if(b.action==='delete_media'){await db`DELETE FROM portfolio_media WHERE id=${String(b.id)}`;return send(res,{ok:true});}
   if(b.action==='delete'){await db`DELETE FROM portfolio_projects WHERE id=${String(b.id)}`;return send(res,{ok:true});}
+  if(b.action==='optimize_existing'){
+   const id=String(b.id||'');if(!id)return send(res,{error:'Media id is required'},400);
+   const {mime,bytes}=decodeDataUrl(b.data_url);
+   const validation=validateUpload(mime,bytes.byteLength);if(validation)return send(res,{error:validation},bytes.byteLength>MAX_UPLOAD_BYTES?413:400);
+   const rows=await db`SELECT id,file_name,mime_type,octet_length(file_data) AS bytes FROM portfolio_media WHERE id=${id} AND file_name IS NOT NULL LIMIT 1` as any[];
+   if(!rows[0])return send(res,{error:'Media not found'},404);
+   if(bytes.byteLength>=Number(rows[0].bytes))return send(res,{ok:true,changed:false,reason:'optimized file was not smaller'});
+   const originalName=String(rows[0].file_name||'upload');
+   const base=originalName.replace(/\.[^.]+$/,'');
+   const fileName=mime==='image/webp'?safeFile(`${base}.webp`):originalName;
+   await db`UPDATE portfolio_media SET file_data=${bytes},file_name=${fileName},mime_type=${mime},storage_url=${`/api/media?id=${id}`},storage_key=${id},updated_at=NOW() WHERE id=${id}`;
+   return send(res,{ok:true,changed:true,id,url:`/api/media?id=${id}`,bytes:bytes.byteLength,previous_bytes:Number(rows[0].bytes)});
+  }
   if(b.action==='upload_chunk'){
    const uploadId=String(b.upload_id||''),projectId=String(b.project_id||''),chunkIndex=Number(b.chunk_index),totalChunks=Number(b.total_chunks),totalSize=Number(b.total_size),fileName=safeFile(String(b.file_name||'upload'));
-   if(!uploadId||!projectId||!Number.isInteger(chunkIndex)||!Number.isInteger(totalChunks)||chunkIndex<0||chunkIndex>=totalChunks||totalChunks<1||totalSize<1||totalSize>MAX_UPLOAD_BYTES)return send(res,{error:'Invalid upload metadata'},400);
+   if(!uploadId||!projectId||!Number.isInteger(chunkIndex)||!Number.isInteger(totalChunks)||chunkIndex<0||chunkIndex>=totalChunks||totalChunks<1||totalSize<1||totalSize>100*1024*1024)return send(res,{error:'Invalid upload metadata'},400);
    const {mime,bytes}=decodeDataUrl(b.data_url);if(bytes.length===0)return send(res,{error:'Empty upload chunk'},400);if(!['image/jpeg','image/png','image/webp','image/gif','image/svg+xml'].includes(mime))return send(res,{error:'Unsupported image type'},400);
    const exists=await db`SELECT id FROM portfolio_projects WHERE id=${projectId} LIMIT 1`;if(!(exists as any[])[0])return send(res,{error:'Project not found'},404);
    const mediaUrl=`/api/media?id=${uploadId}`;
@@ -81,7 +94,7 @@ export default async function handler(req:Req,res:Res){
   }
   if(b.action==='finalize_upload'){
    const uploadId=String(b.upload_id||''),projectId=String(b.project_id||''),fileName=safeFile(String(b.file_name||'upload')),mime=String(b.mime_type||''),totalSize=Number(b.total_size);
-   if(!uploadId||!projectId||!fileName||totalSize<1||totalSize>MAX_UPLOAD_BYTES)return send(res,{error:'Invalid upload metadata'},400);
+   if(!uploadId||!projectId||!fileName||totalSize<1||totalSize>100*1024*1024)return send(res,{error:'Invalid upload metadata'},400);
    if(!['image/jpeg','image/png','image/webp','image/gif','image/svg+xml'].includes(mime))return send(res,{error:'Unsupported image type'},400);
    const rows=await db`SELECT octet_length(file_data) AS bytes FROM portfolio_media WHERE id=${uploadId} AND project_id=${projectId} AND file_name IS NULL LIMIT 1` as any[];
    if(!rows[0])return send(res,{error:'Upload session not found'},404);
