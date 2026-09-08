@@ -1,7 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { safeSlug, validateUpload } from '../src/lib/adminValidation.js';
-import { optimizeImage } from '../src/lib/imageOptimizer.js';
 
 type Req={method?:string;url?:string;headers?:Record<string,string|undefined>;body?:unknown};
 type Res={status:(n:number)=>Res;setHeader:(n:string,v:string)=>Res;json:(d:unknown)=>void;end:(d?:unknown)=>void};
@@ -16,12 +15,13 @@ const body=(r:Req)=>{if(r.body&&typeof r.body==='object')return r.body as Record
 const send=(res:Res,d:unknown,s=200)=>{res.status(s).setHeader('content-type','application/json');res.setHeader('cache-control','no-store');res.json(d)};
 const params=(r:Req)=>new URL(r.url||'/','https://bluehaven.local').searchParams;
 const layoutOf=(value:unknown):Layout=>{const v=typeof value==='object'&&value!==null?String((value as Record<string,unknown>).aspectRatio||''):String(value||'');return v==='portrait'||v==='square'||v==='landscape'?v:'landscape'};
+const isBlobUrl=(value:unknown)=>/^https:\/\/[^\s]+\.blob\.vercel-storage\.com\//.test(String(value||''));
 
 async function visible(db:any){
  const projects=await db`SELECT id,slug,name,category,description,website_url,visible,sort_order,gallery_layout,created_at,updated_at FROM portfolio_projects WHERE visible=true ORDER BY sort_order,created_at DESC`;
  const ids=(projects as any[]).map(p=>p.id);
- const media=ids.length?await db`SELECT id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,file_name,mime_type FROM portfolio_media WHERE project_id=ANY(${ids}) AND file_name IS NOT NULL ORDER BY sort_order,created_at`:[];
- return (projects as any[]).map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout),media:(media as any[]).filter(m=>m.project_id===p.id).map(m=>({...m,storage_url:m.storage_url||`/api/media?id=${m.id}`}))}));
+ const media=ids.length?await db`SELECT id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,file_name,mime_type FROM portfolio_media WHERE project_id=ANY(${ids}) AND file_name IS NOT NULL AND storage_url LIKE 'https://%.blob.vercel-storage.com/%' ORDER BY sort_order,created_at`:[];
+ return (projects as any[]).map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout),media:(media as any[]).filter(m=>m.project_id===p.id).filter(m=>isBlobUrl(m.storage_url)).map(m=>({...m,storage_url:String(m.storage_url)}))}));
 }
 
 export default async function handler(req:Req,res:Res){
@@ -32,7 +32,7 @@ export default async function handler(req:Req,res:Res){
   if(req.method==='GET'){
    const projects=await db`SELECT id,slug,name,category,description,website_url,visible,sort_order,gallery_layout,created_at,updated_at FROM portfolio_projects ORDER BY sort_order,created_at DESC`;
    const media=await db`SELECT id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,file_name,mime_type FROM portfolio_media ORDER BY project_id,sort_order,created_at`;
-   return send(res,{projects:(projects as any[]).map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout)})),media:(media as any[]).map(m=>({...m,storage_url:m.storage_url||`/api/media?id=${m.id}`}))});
+   return send(res,{projects:(projects as any[]).map(p=>({...p,gallery_layout:layoutOf(p.gallery_layout)})),media:(media as any[]).filter(m=>isBlobUrl(m.storage_url)).map(m=>({...m,storage_url:String(m.storage_url)}))});
   }
   if(req.method!=='POST')return send(res,{error:'Method not allowed'},405);
   const b=body(req);
@@ -63,19 +63,12 @@ export default async function handler(req:Req,res:Res){
   }
   if(b.action==='delete_media'){await db`DELETE FROM portfolio_media WHERE id=${String(b.id)}`;return send(res,{ok:true});}
   if(b.action==='delete'){await db`DELETE FROM portfolio_projects WHERE id=${String(b.id)}`;return send(res,{ok:true});}
-
-  // Live media must be stored in Vercel Blob. This legacy action intentionally
-  // does not write image bytes to Postgres anymore; the admin client upload path
-  // in /api/blob-upload handles optimization + Blob storage.
   if(b.action==='optimize_existing'||b.action==='upload_chunk'||b.action==='finalize_upload'){
    return send(res,{error:'Legacy database image storage is disabled. Upload through the Vercel Blob upload flow so only the optimized image is stored live.'},410);
   }
-
-  // Kept as a compatibility response for clients that have not yet switched to
-  // the Blob bridge. No image bytes are ever persisted in portfolio_media.file_data.
   if(b.action==='upload'){
-   const {mime,bytes}=(()=>{const m=String(b.data_url||'').match(/^data:([^;]+);base64,(.+)$/s);if(!m)throw new Error('Invalid image data');return {mime:m[1],bytes:Buffer.from(m[2],'base64')}})();
-   const validation=validateUpload(mime,bytes.byteLength);if(validation)return send(res,{error:validation},bytes.byteLength>MAX_UPLOAD_BYTES?413:400);
+   const m=String(b.data_url||'').match(/^data:([^;]+);base64,(.+)$/s);if(!m)return send(res,{error:'Invalid image data'},400);
+   const bytes=Buffer.from(m[2],'base64');const validation=validateUpload(m[1],bytes.byteLength);if(validation)return send(res,{error:validation},bytes.byteLength>MAX_UPLOAD_BYTES?413:400);
    return send(res,{error:'Direct database image uploads are disabled. Use the Vercel Blob upload flow.'},410);
   }
   return send(res,{error:'Unknown action'},400);
