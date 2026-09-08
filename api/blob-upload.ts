@@ -7,7 +7,7 @@ import { optimizeImage } from '../src/lib/imageOptimizer.js';
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']);
 
-type Req = { method?: string; url?: string; headers?: Record<string, string | undefined> };
+type Req = { method?: string; url?: string; headers?: Record<string, string | undefined>; body?: unknown };
 type Res = { status: (n: number) => Res; setHeader: (n: string, v: string) => Res; json: (d: unknown) => void; end: (d?: unknown) => void };
 
 function cookie(req: Req) { return req.headers?.cookie || req.headers?.Cookie || ''; }
@@ -31,15 +31,9 @@ export default async function handler(req: Req, res: Res) {
   if (!isAdmin(req)) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
-    const body = await new Promise<any>((resolve, reject) => {
-      let raw = '';
-      (req as any).on?.('data', (chunk: Buffer) => { raw += chunk.toString(); });
-      (req as any).on?.('end', () => { try { resolve(JSON.parse(raw)); } catch (error) { reject(error); } });
-      if (!(req as any).on) reject(new Error('Request body stream unavailable'));
-    });
-
+    const body = req.body && typeof req.body === 'object' ? req.body : typeof req.body === 'string' ? JSON.parse(req.body) : {};
     const response = await handleUpload({
-      body,
+      body: body as any,
       request: req as any,
       onBeforeGenerateToken: async (_pathname: string, clientPayload: string | null) => {
         if (!clientPayload) throw new Error('Missing upload metadata');
