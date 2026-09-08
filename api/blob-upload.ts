@@ -1,8 +1,9 @@
 import { handleUpload } from '@vercel/blob/client';
-import { del, put } from '@vercel/blob';
+import { put } from '@vercel/blob';
 import { neon } from '@neondatabase/serverless';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { optimizeImage } from '../src/lib/imageOptimizer.js';
+import { persistBlobMetadataSafely } from '../src/lib/blobUploadPersistence.js';
 
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']);
@@ -44,6 +45,7 @@ export default async function handler(req: Req, res: Res) {
           allowedContentTypes: [...ALLOWED_MIME],
           maximumSizeInBytes: MAX_UPLOAD_BYTES,
           addRandomSuffix: false,
+          allowOverwrite: true,
           tokenPayload: JSON.stringify(payload),
         };
       },
@@ -59,24 +61,25 @@ export default async function handler(req: Req, res: Res) {
         if (sourceBytes.byteLength > MAX_UPLOAD_BYTES) throw new Error('Image exceeds the 100MB limit');
 
         const optimized = await optimizeImage(sourceBytes, sourceMime);
-        const base = safeFile(originalName.replace(/\.[^.]+$/, ''));
-        const optimizedName = safeFile(`${base}.${optimized.extension}`);
-        const optimizedPath = `portfolio/${projectId}/${mediaId}/${optimizedName}`;
-        const optimizedBlob = await put(optimizedPath, Buffer.from(optimized.bytes), {
+
+        // Keep the same public Blob URL that the browser receives, but replace its
+        // contents with the optimized bytes. This means the live image remains on
+        // Blob even when Neon is temporarily unavailable.
+        const optimizedBlob = await put(blob.pathname, Buffer.from(optimized.bytes), {
           access: 'public',
           contentType: optimized.mime,
           addRandomSuffix: false,
           allowOverwrite: true,
         });
 
-        const db = sql();
-        const project = await db`SELECT id FROM portfolio_projects WHERE id=${projectId} LIMIT 1` as any[];
-        if (!project[0]) throw new Error('Project not found');
-        const next = await db`SELECT COALESCE(MAX(sort_order),-1) AS max FROM portfolio_media WHERE project_id=${projectId} AND file_name IS NOT NULL` as any[];
-        const order = Number(next[0]?.max ?? -1) + 1;
-        await db`INSERT INTO portfolio_media(id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,created_at,updated_at,file_data,file_name,mime_type) VALUES(${mediaId},${projectId},${optimizedBlob.url},${optimizedBlob.pathname},${String(payload.altText || 'BlueHaven Studio work').slice(0,180)},'image',${order},${order===0},NOW(),NOW(),NULL,${optimizedName},${optimized.mime}) ON CONFLICT (id) DO UPDATE SET storage_url=EXCLUDED.storage_url,storage_key=EXCLUDED.storage_key,file_data=NULL,file_name=EXCLUDED.file_name,mime_type=EXCLUDED.mime_type,alt_text=EXCLUDED.alt_text,updated_at=NOW()`;
-
-        try { await del(blob.url); } catch (error) { console.warn('Could not remove temporary original Blob:', error); }
+        await persistBlobMetadataSafely(async () => {
+          const db = sql();
+          const project = await db`SELECT id FROM portfolio_projects WHERE id=${projectId} LIMIT 1` as any[];
+          if (!project[0]) throw new Error('Project not found');
+          const next = await db`SELECT COALESCE(MAX(sort_order),-1) AS max FROM portfolio_media WHERE project_id=${projectId} AND file_name IS NOT NULL` as any[];
+          const order = Number(next[0]?.max ?? -1) + 1;
+          await db`INSERT INTO portfolio_media(id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,created_at,updated_at,file_data,file_name,mime_type) VALUES(${mediaId},${projectId},${optimizedBlob.url},${optimizedBlob.pathname},${String(payload.altText || 'BlueHaven Studio work').slice(0,180)},'image',${order},${order===0},NOW(),NOW(),NULL,${originalName},${optimized.mime}) ON CONFLICT (id) DO UPDATE SET storage_url=EXCLUDED.storage_url,storage_key=EXCLUDED.storage_key,file_data=NULL,file_name=EXCLUDED.file_name,mime_type=EXCLUDED.mime_type,alt_text=EXCLUDED.alt_text,updated_at=NOW()`;
+        });
       },
     });
 
