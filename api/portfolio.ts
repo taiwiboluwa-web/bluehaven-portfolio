@@ -1,19 +1,15 @@
 import { neon } from '@neondatabase/serverless';
-import { put } from '@vercel/blob';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { safeSlug, validateUpload } from '../src/lib/adminValidation.js';
 import { optimizeImage } from '../src/lib/imageOptimizer.js';
 
-// Uploads may be large at intake, but only optimized output is persisted permanently.
 type Req={method?:string;url?:string;headers?:Record<string,string|undefined>;body?:unknown};
 type Res={status:(n:number)=>Res;setHeader:(n:string,v:string)=>Res;json:(d:unknown)=>void;end:(d?:unknown)=>void};
 type Layout='portrait'|'landscape'|'square';
 const MAX_UPLOAD_BYTES=100*1024*1024;
 const ALLOWED_MIME=new Set(['image/jpeg','image/png','image/webp','image/gif','image/svg+xml']);
-
 const sql=()=>{if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL is not configured');return neon(process.env.DATABASE_URL)};
 const secret=()=>process.env.BLUEHAVEN_ADMIN_PASSWORD||process.env.ADMIN_PASSWORD||'';
-const blobReady=()=>{if(!process.env.BLOB_READ_WRITE_TOKEN)throw new Error('Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN to the BlueHaven Vercel project.')};
 const cookie=(r:Req)=>r.headers?.cookie||r.headers?.Cookie||'';
 const auth=(r:Req)=>{const raw=cookie(r).match(/(?:^|;\s*)bluehaven_admin=([^;]+)/)?.[1];if(!raw||!secret())return false;const p=raw.split('.');if(p.length!==3)return false;const e=Buffer.from(createHmac('sha256',secret()).update(`${p[0]}.${p[1]}`).digest('base64url')),a=Buffer.from(p[2]);return a.length===e.length&&timingSafeEqual(a,e)};
 const body=(r:Req)=>{if(r.body&&typeof r.body==='object')return r.body as Record<string,unknown>;if(typeof r.body==='string'){try{return JSON.parse(r.body)}catch{}}return {}};
@@ -23,14 +19,11 @@ const layoutOf=(value:unknown):Layout=>{const v=typeof value==='object'&&value!=
 const safeFile=(name:string)=>name.replace(/[^a-zA-Z0-9._-]+/g,'-').slice(-120)||'upload';
 const decodeDataUrl=(value:unknown)=>{const m=String(value||'').match(/^data:([^;]+);base64,(.+)$/s);if(!m)throw new Error('Invalid image data');return {mime:m[1],bytes:Buffer.from(m[2],'base64')}};
 
-async function saveOptimized(id:string,projectId:string,originalName:string,mime:string,bytes:Buffer){
- blobReady();
+async function optimizeForNeon(originalName:string,mime:string,bytes:Buffer){
  const optimized=await optimizeImage(bytes,mime);
  const base=safeFile(originalName.replace(/\.[^.]+$/,''));
  const fileName=safeFile(`${base}.${optimized.extension}`);
- const pathname=`portfolio/${projectId}/${id}-${fileName}`;
- const blob=await put(pathname,optimized.bytes,{access:'public',contentType:optimized.mime,addRandomSuffix:false});
- return {blob,optimized,fileName};
+ return {optimized,fileName};
 }
 
 async function visible(db:any){
@@ -86,9 +79,9 @@ export default async function handler(req:Req,res:Res){
    let mime=String(rows[0].mime_type||'');let bytes=rows[0].file_data instanceof Uint8Array?Buffer.from(rows[0].file_data):Buffer.from(rows[0].file_data||'');
    if(b.data_url){const decoded=decodeDataUrl(b.data_url);mime=decoded.mime;bytes=decoded.bytes}
    const validation=validateUpload(mime,bytes.byteLength);if(validation)return send(res,{error:validation},bytes.byteLength>MAX_UPLOAD_BYTES?413:400);
-   const saved=await saveOptimized(id,String(rows[0].project_id),String(rows[0].file_name),mime,bytes);
-   await db`UPDATE portfolio_media SET file_data=NULL,file_name=${saved.fileName},mime_type=${saved.optimized.mime},storage_url=${saved.blob.url},storage_key=${saved.blob.pathname},updated_at=NOW() WHERE id=${id}`;
-   return send(res,{ok:true,changed:true,id,url:saved.blob.url,bytes:saved.optimized.bytes.byteLength,previous_bytes:bytes.byteLength});
+   const saved=await optimizeForNeon(String(rows[0].file_name),mime,bytes);
+   await db`UPDATE portfolio_media SET file_data=${saved.optimized.bytes},file_name=${saved.fileName},mime_type=${saved.optimized.mime},storage_url=${`/api/media?id=${id}`},storage_key=${id},updated_at=NOW() WHERE id=${id}`;
+   return send(res,{ok:true,changed:true,id,url:`/api/media?id=${id}`,bytes:saved.optimized.bytes.byteLength,previous_bytes:bytes.byteLength});
   }
   if(b.action==='upload_chunk'){
    const uploadId=String(b.upload_id||''),projectId=String(b.project_id||''),chunkIndex=Number(b.chunk_index),totalChunks=Number(b.total_chunks),totalSize=Number(b.total_size);
@@ -111,19 +104,19 @@ export default async function handler(req:Req,res:Res){
    if(!rows[0])return send(res,{error:'Upload session not found'},404);
    const bytes=rows[0].file_data instanceof Uint8Array?Buffer.from(rows[0].file_data):Buffer.from(rows[0].file_data||'');
    if(bytes.byteLength!==totalSize)return send(res,{error:`Upload incomplete: received ${bytes.byteLength} of ${totalSize} bytes`},409);
-   const saved=await saveOptimized(uploadId,projectId,originalName,mime,bytes);
+   const saved=await optimizeForNeon(originalName,mime,bytes);
    const next=await db`SELECT COALESCE(MAX(sort_order),-1) AS max FROM portfolio_media WHERE project_id=${projectId} AND file_name IS NOT NULL`,order=Number((next as any[])[0].max)+1;
-   await db`UPDATE portfolio_media SET file_data=NULL,file_name=${saved.fileName},mime_type=${saved.optimized.mime},sort_order=${order},featured=${order===0},storage_url=${saved.blob.url},storage_key=${saved.blob.pathname},updated_at=NOW() WHERE id=${uploadId} AND project_id=${projectId}`;
-   return send(res,{ok:true,id:uploadId,url:saved.blob.url,bytes:saved.optimized.bytes.byteLength,original_bytes:totalSize,optimized:true});
+   await db`UPDATE portfolio_media SET file_data=${saved.optimized.bytes},file_name=${saved.fileName},mime_type=${saved.optimized.mime},sort_order=${order},featured=${order===0},storage_url=${`/api/media?id=${uploadId}`},storage_key=${uploadId},updated_at=NOW() WHERE id=${uploadId} AND project_id=${projectId}`;
+   return send(res,{ok:true,id:uploadId,url:`/api/media?id=${uploadId}`,bytes:saved.optimized.bytes.byteLength,original_bytes:totalSize,optimized:true});
   }
   if(b.action==='upload'){
    const {mime,bytes}=decodeDataUrl(b.data_url);const validation=validateUpload(mime,bytes.byteLength);if(validation)return send(res,{error:validation},bytes.byteLength>MAX_UPLOAD_BYTES?413:400);
    const id=randomUUID(),projectId=String(b.project_id);const exists=await db`SELECT id FROM portfolio_projects WHERE id=${projectId} LIMIT 1`;if(!(exists as any[])[0])return send(res,{error:'Project not found'},404);
    const next=await db`SELECT COALESCE(MAX(sort_order),-1) AS max FROM portfolio_media WHERE project_id=${projectId} AND file_name IS NOT NULL`,order=Number((next as any[])[0].max)+1;
    const originalName=safeFile(String(b.file_name||`upload-${id}`));
-   const saved=await saveOptimized(id,projectId,originalName,mime,bytes);
-   const mediaUrl=saved.blob.url;
-   await db`INSERT INTO portfolio_media(id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,created_at,updated_at,file_data,file_name,mime_type) VALUES(${id},${projectId},${mediaUrl},${saved.blob.pathname},${String(b.alt_text||'Bluehaven Studio work').slice(0,180)},'image',${order},${order===0},NOW(),NOW(),NULL,${saved.fileName},${saved.optimized.mime})`;
+   const saved=await optimizeForNeon(originalName,mime,bytes);
+   const mediaUrl=`/api/media?id=${id}`;
+   await db`INSERT INTO portfolio_media(id,project_id,storage_url,storage_key,alt_text,media_type,sort_order,featured,created_at,updated_at,file_data,file_name,mime_type) VALUES(${id},${projectId},${mediaUrl},${id},${String(b.alt_text||'Bluehaven Studio work').slice(0,180)},'image',${order},${order===0},NOW(),NOW(),${saved.optimized.bytes},${saved.fileName},${saved.optimized.mime})`;
    return send(res,{ok:true,id,url:mediaUrl,bytes:saved.optimized.bytes.byteLength,original_bytes:bytes.byteLength,optimized:true});
   }
   return send(res,{error:'Unknown action'},400);
