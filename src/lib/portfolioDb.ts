@@ -20,12 +20,13 @@ function shapeProject(row: any): PortfolioProject {
   return { id: String(row.id), slug: String(row.slug), name: String(row.name), category: String(row.category || ''), description: String(row.description || ''), website_url: row.website_url == null ? null : String(row.website_url), visible: Boolean(row.visible), sort_order: Number(row.sort_order || 0), gallery_layout: normalizeLayout(row.gallery_layout), created_at: new Date(row.created_at).toISOString(), updated_at: new Date(row.updated_at).toISOString() };
 }
 function shapeMedia(row: any): PortfolioMedia {
+  const id = String(row.id);
   const storageKey = row.storage_key == null ? null : String(row.storage_key);
   const storedUrl = String(row.storage_url || '');
   return {
-    id: String(row.id),
+    id,
     project_id: String(row.project_id),
-    storage_url: storageKey ? neonMediaGatewayUrl(storageKey) : storedUrl,
+    storage_url: storageKey ? neonMediaGatewayUrl(id) : storedUrl,
     storage_key: storageKey,
     alt_text: String(row.alt_text || ''),
     media_type: 'image',
