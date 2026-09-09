@@ -1,7 +1,10 @@
 import { createRoot } from 'react-dom/client';
 import RouteView from './app/RouteView.tsx';
 import NavigationEnhancement from './app/NavigationEnhancement.tsx';
+import { installPortfolioGalleryRuntime } from './lib/portfolioGalleryRuntime.ts';
 import './styles/index.css';
+
+installPortfolioGalleryRuntime();
 
 const root = createRoot(document.getElementById('root')!);
 const path = window.location.pathname;
