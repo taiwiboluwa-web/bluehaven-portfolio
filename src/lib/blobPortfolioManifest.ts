@@ -1,4 +1,4 @@
-import { del, get, put } from '@vercel/blob';
+import { del, put } from '@vercel/blob';
 
 export type ManifestProject = {
   id: string;
@@ -36,11 +36,27 @@ const LOCK_MAX_ATTEMPTS = 80;
 
 const empty = (): PortfolioManifest => ({ version: 1, projects: [], media: [] });
 
+function publicBlobUrl(pathname: string) {
+  const rawStoreId = String(process.env.BLOB_STORE_ID || '').trim();
+  const storeId = rawStoreId.replace(/^store_/i, '').toLowerCase();
+  if (!storeId) throw new Error('BLOB_STORE_ID is not configured');
+  return `https://${storeId}.public.blob.vercel-storage.com/${pathname}`;
+}
+
 export async function readPortfolioManifest(): Promise<PortfolioManifest> {
-  const result = await get(PATH, { access: 'public', useCache: false });
-  if (!result) return empty();
-  const text = await new Response(result.stream).text();
-  const parsed = JSON.parse(text);
+  // The manifest lives in a PUBLIC Blob store. Reading it through the SDK with
+  // useCache:false forces an authenticated origin fetch, which is currently
+  // returning 403 in production even though public blob delivery is working.
+  // Read the public object directly and bust the CDN cache with a query value.
+  const url = `${publicBlobUrl(PATH)}?manifest=${Date.now()}`;
+  const response = await fetch(url, { cache: 'no-store' });
+
+  if (response.status === 404) return empty();
+  if (!response.ok) {
+    throw new Error(`Portfolio manifest fetch failed: ${response.status} ${response.statusText}`);
+  }
+
+  const parsed = await response.json();
   return {
     version: 1,
     projects: Array.isArray(parsed.projects) ? parsed.projects : [],
