@@ -3,13 +3,12 @@ import { neon } from '@neondatabase/serverless';
 type Req = { url?: string; headers?: Record<string, string | undefined> };
 type Res = { status: (n: number) => Res; setHeader: (n: string, v: string) => Res; end: (d?: unknown) => void };
 
-function isPublicNeonObjectUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'https:' && url.hostname.includes('.storage.') && url.hostname.endsWith('.neon.tech') && url.pathname.startsWith('/bluehaven-portfolio-media/');
-  } catch {
-    return false;
-  }
+const NEON_STORAGE_FUNCTION_URL =
+  process.env.NEON_STORAGE_FUNCTION_URL ||
+  'https://br-young-tooth-axwqa5zd-portfoliostorage.compute.c-4.us-east-2.aws.neon.tech/';
+
+function isPortfolioKey(value: string) {
+  return value.startsWith('portfolio/') && !value.includes('..');
 }
 
 export default async function handler(req: Req, res: Res) {
@@ -18,12 +17,20 @@ export default async function handler(req: Req, res: Res) {
     if (!id || !process.env.DATABASE_URL) return res.status(404).end('Not found');
 
     const sql = neon(process.env.DATABASE_URL);
-    const rows = await sql`SELECT storage_url, storage_key, mime_type FROM portfolio_media WHERE id=${id} LIMIT 1` as any[];
-    const url = String(rows[0]?.storage_url || '');
-    const key = String(rows[0]?.storage_key || '');
-    if (!isPublicNeonObjectUrl(url) || !key.startsWith('portfolio/')) return res.status(404).end('Not found');
+    const rows = await sql`
+      SELECT storage_key, mime_type
+      FROM portfolio_media
+      WHERE id=${id}
+      LIMIT 1
+    ` as any[];
 
-    const upstream = await fetch(url, { cache: 'no-store' });
+    const key = String(rows[0]?.storage_key || '');
+    if (!isPortfolioKey(key)) return res.status(404).end('Not found');
+
+    const gatewayUrl = new URL(NEON_STORAGE_FUNCTION_URL);
+    gatewayUrl.searchParams.set('key', key);
+
+    const upstream = await fetch(gatewayUrl.toString(), { cache: 'no-store' });
     if (!upstream.ok || !upstream.body) {
       console.error('BlueHaven media upstream failed:', upstream.status, key);
       return res.status(404).end('Not found');
