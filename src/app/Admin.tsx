@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowLeft, ArrowUp, Check, Eye, EyeOff, ImagePlus, LogOut, Plus, Save, Trash2, Upload, X, Zap } from 'lucide-react';
 import StoriesAdmin from './StoriesAdmin';
 import { MAX_INPUT_IMAGE_BYTES, optimizeImageFile } from '../lib/imageOptimization';
+import { shouldPollAdmin } from './adminSync';
 
 type Layout='portrait'|'landscape'|'square';
 type Project={id:string;name:string;category:string|null;description:string|null;website_url:string|null;visible:boolean;sort_order:number;gallery_layout:Layout};
@@ -15,8 +16,15 @@ export default function Admin(){
  const [form,setForm]=useState({name:'',category:'Graphic Design',description:'',website_url:'',visible:true,gallery_layout:'landscape' as Layout});
  const [files,setFiles]=useState<File[]>([]);
  const [optimizingExisting,setOptimizingExisting]=useState(false),[optimizationProgress,setOptimizationProgress]=useState({done:0,total:0,saved:0,skipped:0});
- const load=async()=>{const s=await fetch('/api/admin').then(r=>r.json());setAuth(s.authenticated);setConfigured(s.configured);if(!s.authenticated)return;const d=await fetch('/api/portfolio').then(r=>r.json());setProjects(d.projects||[]);setMedia(d.media||[])};
+ const load=async()=>{const s=await fetch('/api/admin').then(r=>r.json());setAuth(s.authenticated);setConfigured(s.configured);if(!s.authenticated)return;const d=await fetch('/api/portfolio',{cache:'no-store'}).then(r=>r.json());setProjects(d.projects||[]);setMedia(d.media||[])};
  useEffect(()=>{load().catch(()=>setError('Could not connect to admin backend.'))},[]);
+ useEffect(()=>{
+  if(auth!==true)return;
+  const sync=async()=>{if(!shouldPollAdmin({busy,expanded}))return;try{const r=await fetch('/api/portfolio',{cache:'no-store'});if(!r.ok)return;const d=await r.json();setProjects(d.projects||[]);setMedia(d.media||[])}catch{}}
+  const interval=window.setInterval(sync,4000);
+  window.addEventListener('focus',sync);
+  return()=>{window.clearInterval(interval);window.removeEventListener('focus',sync)};
+ },[auth,busy,expanded]);
  const action=async(payload:any,refresh=true)=>{setBusy(true);setError('');try{const r=await fetch('/api/portfolio',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok){setError(d.error||'Action failed');return null}if(refresh)await load();return d}catch{return setError('Could not reach the admin backend.'),null}finally{setBusy(false)}};
  const login=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);setError('');const r=await fetch('/api/admin',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password})});const d=await r.json();setBusy(false);if(!r.ok)return setError(d.error||'Login failed');setPassword('');setAuth(true);load()};
  const uploadFiles=async(projectId:string,selected:File[])=>{if(!selected.length)return;const tooBig=selected.find(f=>f.size>MAX_INPUT_IMAGE_BYTES);if(tooBig){setError(`${tooBig.name} is larger than 100MB.`);return}setUploadState(v=>({...v,[projectId]:selected.map(f=>f.name)}));for(const file of selected){try{const optimized=await optimizeImageFile(file);const dataUrl=await readFile(optimized);const result=await action({action:'upload',project_id:projectId,data_url:dataUrl,file_name:optimized.name,alt_text:projects.find(p=>p.id===projectId)?.name||'BlueHaven Studio work'},false);if(!result)break}catch(e){setError(e instanceof Error?e.message:'Upload failed');break}finally{setUploadState(v=>({...v,[projectId]:(v[projectId]||[]).filter(name=>name!==file.name)}))}}await load()};
