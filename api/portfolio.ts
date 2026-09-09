@@ -1,6 +1,6 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
-import { del, put } from '@vercel/blob';
 import { safeSlug } from '../src/lib/adminValidation.js';
+import { issueNeonStorageToken } from '../src/lib/neonStorageAuth.js';
 import {
   addMedia,
   createProject,
@@ -19,6 +19,11 @@ import {
 type Req = { method?: string; url?: string; headers?: Record<string, string | undefined>; body?: unknown };
 type Res = { status: (n: number) => Res; setHeader: (n: string, v: string) => Res; json: (d: unknown) => void };
 type Layout = 'portrait' | 'landscape' | 'square';
+
+const NEON_STORAGE_FUNCTION_URL = 'https://br-young-tooth-axwqa5zd-portfoliostorage.compute.c-4.us-east-2.aws.neon.tech/';
+const NEON_STORAGE_BUCKET = 'bluehaven-portfolio-media';
+const NEON_STORAGE_PUBLIC_ORIGIN = new URL(NEON_STORAGE_FUNCTION_URL).origin.replace('.compute.', '.storage.');
+const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']);
 
 const secret = () => process.env.BLUEHAVEN_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '';
 const cookie = (r: Req) => r.headers?.cookie || r.headers?.Cookie || '';
@@ -53,40 +58,18 @@ const layoutOf = (v: unknown): Layout => {
   const x = typeof v === 'object' && v !== null ? String((v as any).aspectRatio || (v as any).layout || '') : String(v || '');
   return x === 'portrait' || x === 'square' || x === 'landscape' ? x : 'landscape';
 };
+const safeFile = (name: string) => name.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^\.+/, '').slice(-120) || 'upload';
+const publicUrlFor = (key: string) => `${NEON_STORAGE_PUBLIC_ORIGIN}/${NEON_STORAGE_BUCKET}/${key.split('/').map(encodeURIComponent).join('/')}`;
 
-const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
-const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']);
-const extension = (mime: string) => mime === 'image/jpeg' ? 'jpg' : mime === 'image/svg+xml' ? 'svg' : mime.split('/')[1] || 'bin';
-const safeFile = (name: string) => name.replace(/[^a-zA-Z0-9._-]+/g, '-').slice(-120) || 'upload';
+async function callStorageFunction(token: string, method: 'POST' | 'DELETE') {
+  const response = await fetch(NEON_STORAGE_FUNCTION_URL, { method, headers: { 'x-bluehaven-token': token } });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data?.ok) throw new Error(data?.error || 'Neon Object Storage request failed');
+  return data as Record<string, unknown>;
+}
 
-const decodeDataUrl = (value: unknown) => {
-  const match = String(value || '').match(/^data:([^;,]+);base64,(.+)$/s);
-  if (!match) throw new Error('Invalid image data');
-  const mime = match[1].toLowerCase();
+function allowedMime(mime: string) {
   if (!ALLOWED_MIME.has(mime)) throw new Error('Unsupported image type');
-  const bytes = Buffer.from(match[2], 'base64');
-  if (!bytes.length) throw new Error('Empty image data');
-  if (bytes.byteLength > MAX_UPLOAD_BYTES) throw new Error('Image exceeds the 100MB limit');
-  return { mime, bytes };
-};
-
-async function legacyUpload(b: Record<string, unknown>) {
-  const projectId = String(b.project_id || '');
-  if (!projectId) throw new Error('Missing project id');
-  const altText = String(b.alt_text || 'BlueHaven Studio work').slice(0, 180);
-  const fileName = safeFile(String(b.file_name || 'upload'));
-  const { mime, bytes } = decodeDataUrl(b.data_url);
-  const id = randomUUID();
-  const blob = await put(`portfolio-upload-${id}.${extension(mime)}`, bytes, { access: 'public', contentType: mime, addRandomSuffix: false, allowOverwrite: false });
-  try {
-    const current = await readPortfolio();
-    const order = current.media.filter((item) => item.project_id === projectId).length;
-    await addMedia({ id, project_id: projectId, storage_url: blob.url, storage_key: blob.pathname, alt_text: altText, sort_order: order, featured: order === 0, file_name: fileName, mime_type: mime });
-  } catch (error) {
-    await del(blob.url).catch(() => undefined);
-    throw error;
-  }
-  return { id, url: blob.url, optimized: false };
 }
 
 export default async function handler(req: Req, res: Res) {
@@ -99,8 +82,8 @@ export default async function handler(req: Req, res: Res) {
         if (!item || (q.get('project') && item.project_id !== q.get('project'))) return send(res, { media: [] });
         return send(res, { media: [item] });
       }
-      if (auth(req)) return send(res, { ...(await readPortfolio()), storage: 'neon+vercel-blob', neonAvailable: true });
-      return send(res, { projects: await readPublicPortfolio(), storage: 'neon+vercel-blob', neonAvailable: true });
+      if (auth(req)) return send(res, { ...(await readPortfolio()), storage: 'neon-object-storage', neonAvailable: true });
+      return send(res, { projects: await readPublicPortfolio(), storage: 'neon-object-storage', neonAvailable: true });
     }
 
     if (!auth(req)) return send(res, { error: 'Unauthorized' }, 401);
@@ -115,60 +98,91 @@ export default async function handler(req: Req, res: Res) {
         const id = randomUUID();
         const data = await readPortfolio();
         await createProject({ id, slug: safeSlug(String(b.slug || name)), name, category: String(b.category || 'Graphic Design').slice(0, 80), description: String(b.description || '').slice(0, 500), website_url: b.website_url ? String(b.website_url).slice(0, 500) : null, visible: b.visible === undefined ? true : Boolean(b.visible), sort_order: data.projects.length, gallery_layout: layoutOf(b.gallery_layout), created_at: now, updated_at: now });
-        return send(res, { ok: true, id, storage: 'neon+vercel-blob' });
+        return send(res, { ok: true, id, storage: 'neon-object-storage' });
       }
 
-      if (b.action === 'upload') return send(res, { ok: true, ...(await legacyUpload(b)), storage: 'neon+vercel-blob' });
-
-      if (b.action === 'optimize_existing') {
-        const id = String(b.id || '');
-        const current = await getMedia(id);
-        if (!current) throw new Error('Media not found');
-        const { mime, bytes } = decodeDataUrl(b.data_url);
-        const blob = await put(current.storage_key || `portfolio-upload-${id}.${extension(mime)}`, bytes, { access: 'public', contentType: mime, addRandomSuffix: false, allowOverwrite: true });
-        await updateMediaUrl(id, blob.url, blob.pathname, mime);
-        return send(res, { ok: true, id, url: blob.url, changed: true, storage: 'neon+vercel-blob' });
+      if (b.action === 'prepare_upload' || b.action === 'prepare_replace') {
+        const mediaId = String(b.media_id || b.id || '');
+        const fileName = safeFile(String(b.file_name || 'upload'));
+        const mimeType = String(b.mime_type || '');
+        allowedMime(mimeType);
+        let projectId = String(b.project_id || '');
+        let action: 'upload' | 'replace' = 'upload';
+        if (b.action === 'prepare_replace') {
+          const current = await getMedia(mediaId);
+          if (!current) return send(res, { error: 'Media not found' }, 404);
+          projectId = current.project_id;
+          action = 'replace';
+        }
+        if (!projectId || !mediaId) return send(res, { error: 'Missing project or media id' }, 400);
+        const storageKey = `portfolio/${projectId}/${mediaId}-${fileName}`;
+        const token = issueNeonStorageToken({ action, projectId, mediaId, fileName, mimeType });
+        return send(res, { ok: true, token, upload_url: NEON_STORAGE_FUNCTION_URL, storage_key: storageKey, url: publicUrlFor(storageKey), media_id: mediaId, project_id: projectId, storage: 'neon-object-storage' });
       }
+
+      if (b.action === 'register_upload') {
+        const projectId = String(b.project_id || '');
+        const mediaId = String(b.media_id || '');
+        const fileName = safeFile(String(b.file_name || 'upload'));
+        const mimeType = String(b.mime_type || '');
+        const storageKey = String(b.storage_key || '');
+        const url = String(b.url || '');
+        allowedMime(mimeType);
+        if (!projectId || !mediaId || !storageKey || url !== publicUrlFor(storageKey) || !storageKey.startsWith(`portfolio/${projectId}/${mediaId}-`)) return send(res, { error: 'Invalid Neon storage registration' }, 400);
+        const existing = await getMedia(mediaId);
+        if (existing) return send(res, { ok: true, id: mediaId, url: existing.storage_url, storage: 'neon-object-storage' });
+        const current = await readPortfolio();
+        const order = current.media.filter((item) => item.project_id === projectId).length;
+        await addMedia({ id: mediaId, project_id: projectId, storage_url: url, storage_key: storageKey, alt_text: String(b.alt_text || 'BlueHaven Studio work').slice(0, 180), sort_order: order, featured: order === 0, file_name: fileName, mime_type: mimeType });
+        return send(res, { ok: true, id: mediaId, url, storage: 'neon-object-storage' });
+      }
+
+      if (b.action === 'complete_replace') {
+        const mediaId = String(b.id || '');
+        const current = await getMedia(mediaId);
+        if (!current) return send(res, { error: 'Media not found' }, 404);
+        const storageKey = String(b.storage_key || '');
+        const url = String(b.url || '');
+        const mimeType = String(b.mime_type || '');
+        allowedMime(mimeType);
+        if (!storageKey || url !== publicUrlFor(storageKey) || !storageKey.startsWith(`portfolio/${current.project_id}/${mediaId}-`)) return send(res, { error: 'Invalid Neon replacement target' }, 400);
+        await updateMediaUrl(mediaId, url, storageKey, mimeType);
+        return send(res, { ok: true, id: mediaId, url, changed: true, storage: 'neon-object-storage' });
+      }
+
+      if (b.action === 'upload') return send(res, { error: 'The legacy upload endpoint is retired. The Admin now uploads directly to Neon Object Storage.' }, 410);
+      if (b.action === 'optimize_existing') return send(res, { error: 'Use the Admin optimization flow so the optimized bytes are uploaded directly to Neon Object Storage.' }, 410);
 
       if (b.action === 'update') {
         await updateProject({ id: String(b.id), name: String(b.name || '').trim().slice(0, 120), category: String(b.category || '').slice(0, 80), description: String(b.description || '').slice(0, 500), website_url: b.website_url ? String(b.website_url).slice(0, 500) : null, visible: Boolean(b.visible), gallery_layout: layoutOf(b.gallery_layout) });
-        return send(res, { ok: true, storage: 'neon+vercel-blob' });
+        return send(res, { ok: true, storage: 'neon-object-storage' });
       }
-
-      if (b.action === 'toggle') {
-        await toggleProject(String(b.id));
-        return send(res, { ok: true, storage: 'neon+vercel-blob' });
-      }
-
-      if (b.action === 'reorder') {
-        await reorderProjects(Array.isArray(b.ids) ? b.ids.map(String) : []);
-        return send(res, { ok: true, storage: 'neon+vercel-blob' });
-      }
-
-      if (b.action === 'reorder_media') {
-        await reorderMedia(String(b.project_id || ''), Array.isArray(b.ids) ? b.ids.map(String) : []);
-        return send(res, { ok: true, storage: 'neon+vercel-blob' });
-      }
+      if (b.action === 'toggle') { await toggleProject(String(b.id)); return send(res, { ok: true, storage: 'neon-object-storage' }); }
+      if (b.action === 'reorder') { await reorderProjects(Array.isArray(b.ids) ? b.ids.map(String) : []); return send(res, { ok: true, storage: 'neon-object-storage' }); }
+      if (b.action === 'reorder_media') { await reorderMedia(String(b.project_id || ''), Array.isArray(b.ids) ? b.ids.map(String) : []); return send(res, { ok: true, storage: 'neon-object-storage' }); }
 
       if (b.action === 'delete_media') {
         const id = String(b.id || '');
         const media = await getMedia(id);
         if (!media) return send(res, { error: 'Media not found' }, 404);
-        await del(media.storage_url).catch((error) => console.warn('Blob delete warning:', error));
+        if (media.storage_key) {
+          const token = issueNeonStorageToken({ action: 'delete', projectId: media.project_id, storageKey: media.storage_key }, 120);
+          await callStorageFunction(token, 'DELETE');
+        }
         await deleteMediaRecord(id);
-        return send(res, { ok: true, storage: 'neon+vercel-blob' });
+        return send(res, { ok: true, storage: 'neon-object-storage' });
       }
 
       if (b.action === 'delete') {
         const id = String(b.id || '');
         const data = await readPortfolio();
         const projectMedia = data.media.filter((item) => item.project_id === id);
-        await Promise.all(projectMedia.map((item) => del(item.storage_url).catch(() => undefined)));
+        await Promise.all(projectMedia.filter((item) => item.storage_key).map((item) => callStorageFunction(issueNeonStorageToken({ action: 'delete', projectId: id, storageKey: item.storage_key! }, 120), 'DELETE').catch((error) => console.warn('Neon object delete warning:', error))));
         await deleteProject(id);
-        return send(res, { ok: true, storage: 'neon+vercel-blob' });
+        return send(res, { ok: true, storage: 'neon-object-storage' });
       }
 
-      if (b.action === 'upload_chunk' || b.action === 'finalize_upload') return send(res, { error: 'Use the direct Vercel Blob upload flow for large files.', storage: 'neon+vercel-blob' }, 410);
+      if (b.action === 'upload_chunk' || b.action === 'finalize_upload') return send(res, { error: 'Use the Admin direct Neon Object Storage upload flow.', storage: 'neon-object-storage' }, 410);
       return send(res, { error: 'Unknown action' }, 400);
     } catch (error) {
       console.error('BlueHaven portfolio API error:', error);
