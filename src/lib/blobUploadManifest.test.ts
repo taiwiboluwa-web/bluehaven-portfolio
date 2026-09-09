@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { appendUploadedMedia } from './blobUploadManifest';
+import { appendUploadedMedia, attachManifestMedia } from './blobUploadManifest';
 
 describe('appendUploadedMedia', () => {
   it('registers a newly uploaded public Blob against the target project', () => {
@@ -33,5 +33,22 @@ describe('appendUploadedMedia', () => {
     };
     const result = appendUploadedMedia(base, { id: 'p1-c', project_id: 'p1', url: 'https://blob.vercel-storage.com/p1/p1-c.webp', pathname: 'p1/p1-c.webp', fileName: 'third.webp', mimeType: 'image/webp', altText: 'Third' });
     expect(result.media.find((item) => item.id === 'p1-c')).toMatchObject({ project_id: 'p1', sort_order: 2, featured: false });
+  });
+
+  it('builds each public project media array from the manifest media list', () => {
+    const manifest = {
+      version: 1 as const,
+      projects: [{ id: 'p1', name: 'Graphic Design', visible: true } as any, { id: 'p2', name: 'Other', visible: true } as any],
+      media: [
+        { id: 'm2', project_id: 'p2', sort_order: 0 } as any,
+        { id: 'm1', project_id: 'p1', sort_order: 1 } as any,
+        { id: 'm0', project_id: 'p1', sort_order: 0 } as any,
+      ],
+    };
+
+    expect(attachManifestMedia(manifest).projects).toEqual([
+      expect.objectContaining({ id: 'p1', media: [expect.objectContaining({ id: 'm0' }), expect.objectContaining({ id: 'm1' })] }),
+      expect.objectContaining({ id: 'p2', media: [expect.objectContaining({ id: 'm2' })] }),
+    ]);
   });
 });
