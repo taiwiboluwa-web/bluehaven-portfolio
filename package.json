@@ -14,7 +14,6 @@
     "@aws-sdk/lib-storage": "^3.900.0",
     "@neondatabase/serverless": "^1.1.0",
     "@tailwindcss/vite": "^4.1.12",
-    "@vercel/blob": "^2.6.1",
     "@vitejs/plugin-react": "^4.3.4",
     "lucide-react": "^0.563.0",
     "motion": "^12.38.0",
