@@ -1,4 +1,5 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { put } from '@vercel/blob';
 import { safeSlug } from '../src/lib/adminValidation.js';
 import { readPortfolioManifest, updatePortfolioManifest } from '../src/lib/blobPortfolioManifest.js';
 
@@ -15,6 +16,48 @@ const layoutOf=(v:unknown):Layout=>{const x=typeof v==='object'&&v!==null?String
 const publicManifest=async()=>{const m=await readPortfolioManifest();return m.projects.filter(p=>p.visible).sort((a,b)=>a.sort_order-b.sort_order||a.created_at.localeCompare(b.created_at)).map(p=>({...p,media:m.media.filter(x=>x.project_id===p.id).sort((a,b)=>a.sort_order-b.sort_order)}));};
 const adminManifest=async()=>{const m=await readPortfolioManifest();return {projects:m.projects.sort((a,b)=>a.sort_order-b.sort_order),media:m.media.sort((a,b)=>a.project_id.localeCompare(b.project_id)||a.sort_order-b.sort_order)};};
 
+const MAX_UPLOAD_BYTES=100*1024*1024;
+const ALLOWED_MIME=new Set(['image/jpeg','image/png','image/webp','image/gif','image/svg+xml']);
+const extension=(mime:string)=>mime==='image/jpeg'?'jpg':mime==='image/svg+xml'?'svg':mime.split('/')[1]||'bin';
+const decodeDataUrl=(value:unknown)=>{
+ const raw=String(value||'');
+ const match=raw.match(/^data:([^;,]+);base64,(.+)$/s);
+ if(!match)throw new Error('Invalid image data');
+ const mime=match[1].toLowerCase();
+ if(!ALLOWED_MIME.has(mime))throw new Error('Unsupported image type');
+ const bytes=Buffer.from(match[2],'base64');
+ if(!bytes.length)throw new Error('Empty image data');
+ if(bytes.byteLength>MAX_UPLOAD_BYTES)throw new Error('Image exceeds the 100MB limit');
+ return {mime,bytes};
+};
+const safeFile=(name:string)=>name.replace(/[^a-zA-Z0-9._-]+/g,'-').slice(-120)||'upload';
+
+async function registerUpload(b:Record<string,unknown>){
+ const projectId=String(b.project_id||''),altText=String(b.alt_text||'BlueHaven Studio work').slice(0,180),fileName=safeFile(String(b.file_name||'upload'));
+ if(!projectId)throw new Error('Missing project id');
+ const {mime,bytes}=decodeDataUrl(b.data_url);
+ const id=randomUUID();
+ const blob=await put(`portfolio-upload-${id}.${extension(mime)}`,bytes,{access:'public',contentType:mime,addRandomSuffix:false,allowOverwrite:false});
+ let result={id,url:blob.url,optimized:false};
+ await updatePortfolioManifest(m=>{
+  const order=m.media.filter(x=>x.project_id===projectId).length;
+  return {...m,media:[...m.media,{id,project_id:projectId,storage_url:blob.url,storage_key:blob.pathname,alt_text:altText,media_type:'image' as const,sort_order:order,featured:order===0,file_name:fileName,mime_type:mime}]};
+ });
+ return result;
+}
+
+async function optimizeExisting(b:Record<string,unknown>){
+ const id=String(b.id||'');
+ if(!id)throw new Error('Missing media id');
+ const {mime,bytes}=decodeDataUrl(b.data_url);
+ const current=(await readPortfolioManifest()).media.find(x=>x.id===id);
+ if(!current)throw new Error('Media not found');
+ const key=current.storage_key||`portfolio-upload-${id}.${extension(mime)}`;
+ const blob=await put(key,bytes,{access:'public',contentType:mime,addRandomSuffix:false,allowOverwrite:true});
+ await updatePortfolioManifest(m=>({...m,media:m.media.map(x=>x.id===id?{...x,storage_url:blob.url,storage_key:blob.pathname,mime_type:mime}:x)}));
+ return {id,url:blob.url,changed:true,storage:'vercel-blob'};
+}
+
 export default async function handler(req:Req,res:Res){
  const q=params(req);
  if(req.method==='GET'){
@@ -26,13 +69,15 @@ export default async function handler(req:Req,res:Res){
  const b=body(req);
  try{
   if(b.action==='create'){const name=String(b.name||'').trim().slice(0,120);if(!name)return send(res,{error:'Project name is required'},400);const id=randomUUID(),now=new Date().toISOString(),layout=layoutOf(b.gallery_layout);await updatePortfolioManifest(m=>({version:1,projects:[...m.projects,{id,slug:safeSlug(String(b.slug||name)),name,category:String(b.category||'Graphic Design').slice(0,80),description:String(b.description||'').slice(0,500),website_url:b.website_url?String(b.website_url).slice(0,500):null,visible:b.visible===undefined?true:Boolean(b.visible),sort_order:m.projects.length,gallery_layout:layout,created_at:now,updated_at:now}],media:m.media}));return send(res,{ok:true,id,storage:'vercel-blob'});}
+  if(b.action==='upload')return send(res,{ok:true,...await registerUpload(b),storage:'vercel-blob'});
+  if(b.action==='optimize_existing')return send(res,{ok:true,...await optimizeExisting(b)});
   if(b.action==='update'){const id=String(b.id),layout=layoutOf(b.gallery_layout),now=new Date().toISOString();await updatePortfolioManifest(m=>({...m,projects:m.projects.map(p=>p.id===id?{...p,name:String(b.name||'').trim().slice(0,120),category:String(b.category||'').slice(0,80),description:String(b.description||'').slice(0,500),website_url:b.website_url?String(b.website_url).slice(0,500):null,visible:Boolean(b.visible),gallery_layout:layout,updated_at:now}:p)}));return send(res,{ok:true,storage:'vercel-blob'});}
   if(b.action==='toggle'){const id=String(b.id);await updatePortfolioManifest(m=>({...m,projects:m.projects.map(p=>p.id===id?{...p,visible:!p.visible,updated_at:new Date().toISOString()}:p)}));return send(res,{ok:true,storage:'vercel-blob'});}
   if(b.action==='reorder'){const ids=Array.isArray(b.ids)?b.ids.map(String):[];await updatePortfolioManifest(m=>({...m,projects:m.projects.map(p=>{const i=ids.indexOf(p.id);return i<0?p:{...p,sort_order:i,updated_at:new Date().toISOString()}})}));return send(res,{ok:true,storage:'vercel-blob'});}
   if(b.action==='reorder_media'){const ids=Array.isArray(b.ids)?b.ids.map(String):[],projectId=String(b.project_id||'');await updatePortfolioManifest(m=>({...m,media:m.media.map(x=>{const i=ids.indexOf(x.id);return x.project_id===projectId&&i>=0?{...x,sort_order:i,featured:i===0}:x})}));return send(res,{ok:true,storage:'vercel-blob'});}
   if(b.action==='delete_media'){const id=String(b.id);await updatePortfolioManifest(m=>({...m,media:m.media.filter(x=>x.id!==id)}));return send(res,{ok:true,storage:'vercel-blob'});}
   if(b.action==='delete'){const id=String(b.id);await updatePortfolioManifest(m=>({...m,projects:m.projects.filter(x=>x.id!==id),media:m.media.filter(x=>x.project_id!==id)}));return send(res,{ok:true,storage:'vercel-blob'});}
-  if(b.action==='upload'||b.action==='optimize_existing'||b.action==='upload_chunk'||b.action==='finalize_upload')return send(res,{error:'Use the Vercel Blob upload flow. Live image bytes are never stored in Neon.',storage:'vercel-blob'},410);
+  if(b.action==='upload_chunk'||b.action==='finalize_upload')return send(res,{error:'Use the Vercel Blob upload flow for chunked uploads.','storage':'vercel-blob'},410);
   return send(res,{error:'Unknown action'},400);
  }catch(e){console.error('BlueHaven portfolio API error:',e);return send(res,{error:e instanceof Error?e.message:'Server error'},500)}
 }
