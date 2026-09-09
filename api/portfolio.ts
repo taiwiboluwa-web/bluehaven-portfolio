@@ -8,7 +8,7 @@ import { addMedia, createProject, deleteMediaRecord, deleteProject, getMedia, re
 type Req = { method?: string; url?: string; headers?: Record<string, string | undefined>; body?: unknown };
 type Res = { status: (n: number) => Res; setHeader: (n: string, v: string) => Res; json: (d: unknown) => void; end: (d?: unknown) => void };
 type Layout = 'portrait' | 'landscape' | 'square';
-const NEON_STORAGE_FUNCTION_URL = 'https://br-young-tooth-axwqa5zd-portfoliostorage.compute.c-4.us-east-2.aws.neon.tech/';
+const NEON_STORAGE_FUNCTION_URL = process.env.NEON_STORAGE_FUNCTION_URL || 'https://br-young-tooth-axwqa5zd-portfoliostorage.compute.c-4.us-east-2.aws.neon.tech/';
 const secret = () => process.env.BLUEHAVEN_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '';
 const cookie = (r: Req) => r.headers?.cookie || r.headers?.Cookie || '';
 const auth = (r: Req) => { const raw = cookie(r).match(/(?:^|;\s*)bluehaven_admin=([^;]+)/)?.[1]; if (!raw || !secret()) return false; const parts = raw.split('.'); if (parts.length !== 3) return false; const expected = Buffer.from(createHmac('sha256', secret()).update(`${parts[0]}.${parts[1]}`).digest('base64url')); const actual = Buffer.from(parts[2]); return actual.length === expected.length && timingSafeEqual(actual, expected); };
@@ -18,14 +18,18 @@ const params = (r: Req) => new URL(r.url || '/', 'https://bluehaven.local').sear
 const layoutOf = (v: unknown): Layout => { const x = typeof v === 'object' && v !== null ? String((v as any).aspectRatio || (v as any).layout || '') : String(v || ''); return x === 'portrait' || x === 'square' || x === 'landscape' ? x : 'landscape'; };
 const objectUrl = (key: string) => { const u = new URL(NEON_STORAGE_FUNCTION_URL); u.searchParams.set('key', key); return u.toString(); };
 async function readObject(key: string) { const response = await fetch(objectUrl(key), { cache: 'no-store' }); if (!response.ok || !response.body) throw new Error(`Neon Object Storage media read failed (${response.status})`); return response; }
-async function deleteObject(projectId: string, key: string) { if (!key.startsWith(`portfolio/${projectId}/`)) throw new Error('Invalid storage key'); const token = issueNeonStorageToken({ action: 'delete', projectId, storageKey: key }, 120); const response = await fetch(NEON_STORAGE_FUNCTION_URL, { method: 'DELETE', headers: { 'x-bluehaven-token': token } }); const data = await response.json().catch(() => ({})); if (!response.ok || !data?.ok) throw new Error(data?.error || 'Neon Object Storage delete failed'); }
+async function deleteObject(projectId: string, key: string) { if (!key.startsWith(`portfolio/${projectId}/`) || key.includes('..') || key.includes('\\')) throw new Error('Invalid storage key'); const token = issueNeonStorageToken({ action: 'delete', projectId, storageKey: key }, 120); const response = await fetch(NEON_STORAGE_FUNCTION_URL, { method: 'DELETE', headers: { 'x-bluehaven-token': token } }); const data = await response.json().catch(() => ({})); if (!response.ok || !data?.ok) throw new Error(data?.error || 'Neon Object Storage delete failed'); }
+function isPublicMediaKey(projectId: string, key: string) { return Boolean(key) && key.startsWith(`portfolio/${projectId}/`) && !key.includes('..') && !key.includes('\\'); }
 
 export default async function handler(req: Req, res: Res) {
   const q = params(req);
   try {
     if (req.method === 'GET' && q.get('media')) {
       const mediaId = q.get('media')!; const media = await getMedia(mediaId);
-      if (!media || !media.storage_key || !isPortfolioStorageKey(media.storage_key) || !media.storage_key.startsWith(`portfolio/${media.project_id}/`)) return res.status(404).end('Not found');
+      // Media already comes from our database, so support both current and legacy
+      // Neon portfolio keys. The old strict filename regex rejected valid legacy
+      // uploads even though the project association was correct.
+      if (!media || !isPublicMediaKey(media.project_id, media.storage_key)) return res.status(404).end('Not found');
       try { const upstream = await readObject(media.storage_key); const contentType = upstream.headers.get('content-type') || media.mime_type; const contentLength = upstream.headers.get('content-length'); res.status(200).setHeader('content-type', contentType); if (contentLength) res.setHeader('content-length', contentLength); res.setHeader('cache-control', 'public, max-age=31536000, immutable'); res.setHeader('x-content-type-options', 'nosniff'); return res.end(Buffer.from(await upstream.arrayBuffer())); } catch (error) { console.error('BlueHaven public media delivery error:', error); return res.status(404).end('Not found'); }
     }
     if (req.method === 'GET') {
