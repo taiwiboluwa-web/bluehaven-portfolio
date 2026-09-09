@@ -1,5 +1,5 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
-import { put, del } from '@vercel/blob';
+import { del, put } from '@vercel/blob';
 import { safeSlug } from '../src/lib/adminValidation.js';
 import {
   addMedia,
@@ -12,6 +12,7 @@ import {
   reorderMedia,
   reorderProjects,
   toggleProject,
+  updateMediaUrl,
   updateProject,
 } from '../src/lib/portfolioDb.js';
 
@@ -76,9 +77,7 @@ async function legacyUpload(b: Record<string, unknown>) {
   const fileName = safeFile(String(b.file_name || 'upload'));
   const { mime, bytes } = decodeDataUrl(b.data_url);
   const id = randomUUID();
-  const blob = await put(`portfolio-upload-${id}.${extension(mime)}`, bytes, {
-    access: 'public', contentType: mime, addRandomSuffix: false, allowOverwrite: false,
-  });
+  const blob = await put(`portfolio-upload-${id}.${extension(mime)}`, bytes, { access: 'public', contentType: mime, addRandomSuffix: false, allowOverwrite: false });
   try {
     const current = await readPortfolio();
     const order = current.media.filter((item) => item.project_id === projectId).length;
@@ -100,10 +99,7 @@ export default async function handler(req: Req, res: Res) {
         if (!item || (q.get('project') && item.project_id !== q.get('project'))) return send(res, { media: [] });
         return send(res, { media: [item] });
       }
-      if (auth(req)) {
-        const data = await readPortfolio();
-        return send(res, { ...data, storage: 'neon+vercel-blob', neonAvailable: true });
-      }
+      if (auth(req)) return send(res, { ...(await readPortfolio()), storage: 'neon+vercel-blob', neonAvailable: true });
       return send(res, { projects: await readPublicPortfolio(), storage: 'neon+vercel-blob', neonAvailable: true });
     }
 
@@ -121,31 +117,48 @@ export default async function handler(req: Req, res: Res) {
         await createProject({ id, slug: safeSlug(String(b.slug || name)), name, category: String(b.category || 'Graphic Design').slice(0, 80), description: String(b.description || '').slice(0, 500), website_url: b.website_url ? String(b.website_url).slice(0, 500) : null, visible: b.visible === undefined ? true : Boolean(b.visible), sort_order: data.projects.length, gallery_layout: layoutOf(b.gallery_layout), created_at: now, updated_at: now });
         return send(res, { ok: true, id, storage: 'neon+vercel-blob' });
       }
+
       if (b.action === 'upload') return send(res, { ok: true, ...(await legacyUpload(b)), storage: 'neon+vercel-blob' });
+
+      if (b.action === 'optimize_existing') {
+        const id = String(b.id || '');
+        const current = await getMedia(id);
+        if (!current) throw new Error('Media not found');
+        const { mime, bytes } = decodeDataUrl(b.data_url);
+        const blob = await put(current.storage_key || `portfolio-upload-${id}.${extension(mime)}`, bytes, { access: 'public', contentType: mime, addRandomSuffix: false, allowOverwrite: true });
+        await updateMediaUrl(id, blob.url, blob.pathname, mime);
+        return send(res, { ok: true, id, url: blob.url, changed: true, storage: 'neon+vercel-blob' });
+      }
+
       if (b.action === 'update') {
         await updateProject({ id: String(b.id), name: String(b.name || '').trim().slice(0, 120), category: String(b.category || '').slice(0, 80), description: String(b.description || '').slice(0, 500), website_url: b.website_url ? String(b.website_url).slice(0, 500) : null, visible: Boolean(b.visible), gallery_layout: layoutOf(b.gallery_layout) });
         return send(res, { ok: true, storage: 'neon+vercel-blob' });
       }
+
       if (b.action === 'toggle') {
         await toggleProject(String(b.id));
         return send(res, { ok: true, storage: 'neon+vercel-blob' });
       }
+
       if (b.action === 'reorder') {
         await reorderProjects(Array.isArray(b.ids) ? b.ids.map(String) : []);
         return send(res, { ok: true, storage: 'neon+vercel-blob' });
       }
+
       if (b.action === 'reorder_media') {
         await reorderMedia(String(b.project_id || ''), Array.isArray(b.ids) ? b.ids.map(String) : []);
         return send(res, { ok: true, storage: 'neon+vercel-blob' });
       }
+
       if (b.action === 'delete_media') {
         const id = String(b.id || '');
         const media = await getMedia(id);
         if (!media) return send(res, { error: 'Media not found' }, 404);
-        if (media.storage_url) await del(media.storage_url).catch((error) => console.warn('Blob delete warning:', error));
+        await del(media.storage_url).catch((error) => console.warn('Blob delete warning:', error));
         await deleteMediaRecord(id);
         return send(res, { ok: true, storage: 'neon+vercel-blob' });
       }
+
       if (b.action === 'delete') {
         const id = String(b.id || '');
         const data = await readPortfolio();
@@ -154,20 +167,8 @@ export default async function handler(req: Req, res: Res) {
         await deleteProject(id);
         return send(res, { ok: true, storage: 'neon+vercel-blob' });
       }
-      if (b.action === 'upload_chunk' || b.action === 'finalize_upload') {
-        return send(res, { error: 'Use the direct Vercel Blob upload flow for large files.', storage: 'neon+vercel-blob' }, 410);
-      }
-      if (b.action === 'optimize_existing') {
-        const id = String(b.id || '');
-        const current = await getMedia(id);
-        if (!current) throw new Error('Media not found');
-        const { mime, bytes } = decodeDataUrl(b.data_url);
-        const blob = await put(current.storage_key || `portfolio-upload-${id}.${extension(mime)}`, bytes, { access: 'public', contentType: mime, addRandomSuffix: false, allowOverwrite: true });
-        await updateProject;
-        const { updateMediaUrl } = await import('../src/lib/portfolioDb.js');
-        await updateMediaUrl(id, blob.url, blob.pathname, mime);
-        return send(res, { ok: true, id, url: blob.url, changed: true, storage: 'neon+vercel-blob' });
-      }
+
+      if (b.action === 'upload_chunk' || b.action === 'finalize_upload') return send(res, { error: 'Use the direct Vercel Blob upload flow for large files.', storage: 'neon+vercel-blob' }, 410);
       return send(res, { error: 'Unknown action' }, 400);
     } catch (error) {
       console.error('BlueHaven portfolio API error:', error);
