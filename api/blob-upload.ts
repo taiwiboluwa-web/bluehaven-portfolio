@@ -38,9 +38,10 @@ export default async function handler(req: Req, res: Res) {
   try {
     const body = req.body && typeof req.body === 'object' ? req.body as Record<string, unknown> : typeof req.body === 'string' ? JSON.parse(req.body) as Record<string, unknown> : {};
 
-    // Explicit post-upload finalization makes the manifest update deterministic. The
-    // Blob SDK callback remains enabled as a fallback, but the client no longer relies
-    // on an asynchronous callback to make a newly uploaded image visible in Admin.
+    // Finalization is intentionally explicit and synchronous from the admin client.
+    // Do not also finalize from onUploadCompleted: that callback can run concurrently
+    // with the explicit request and cause two manifest read/write cycles to race. That
+    // race is what can make a multi-image upload appear to save only the last few files.
     if (body.action === 'finalize') {
       const result = await finalizeMedia(body, String(body.blob_url || ''));
       return res.status(200).setHeader('content-type', 'application/json').json({ ok: true, ...result, storage: 'vercel-blob' });
@@ -55,10 +56,6 @@ export default async function handler(req: Req, res: Res) {
         if (!payload.projectId || !payload.mediaId) throw new Error('Missing project or media id');
         if (!ALLOWED_MIME.has(String(payload.mimeType || ''))) throw new Error('Unsupported image type');
         return { allowedContentTypes: [...ALLOWED_MIME], maximumSizeInBytes: MAX_UPLOAD_BYTES, addRandomSuffix: false, allowOverwrite: true, tokenPayload: JSON.stringify(payload) };
-      },
-      onUploadCompleted: async ({ blob, tokenPayload }: any) => {
-        try { await finalizeMedia(JSON.parse(String(tokenPayload || '{}')), blob.url); }
-        catch (error) { console.error('BlueHaven Blob completion finalization error:', error); }
       },
     });
     res.status(200).setHeader('content-type', 'application/json').json(response);
