@@ -1,3 +1,3 @@
 export function neonMediaGatewayUrl(mediaId: string) {
-  return `/api/portfolio?media=${encodeURIComponent(mediaId)}`;
+  return `/api/media?id=${encodeURIComponent(mediaId)}`;
 }
