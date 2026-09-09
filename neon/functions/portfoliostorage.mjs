@@ -5,16 +5,19 @@ const MAX_BYTES = 100 * 1024 * 1024;
 const VERIFY_URL = process.env.BLUEHAVEN_VERIFY_URL || 'https://www.bluehavens.name.ng/api/neon-storage-verify';
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']);
 
-const response = (data, status = 200, origin = '*') => new Response(JSON.stringify(data), {
-  status,
-  headers: {
-    'content-type': 'application/json',
-    'cache-control': 'no-store',
-    'access-control-allow-origin': origin,
-    'access-control-allow-methods': 'POST,DELETE,OPTIONS',
-    'access-control-allow-headers': 'content-type,x-bluehaven-token',
+const response = (data, status = 200, origin = '*') => new Response(
+  status === 204 || status === 205 ? null : JSON.stringify(data),
+  {
+    status,
+    headers: {
+      'content-type': 'application/json',
+      'cache-control': 'no-store',
+      'access-control-allow-origin': origin,
+      'access-control-allow-methods': 'POST,DELETE,OPTIONS',
+      'access-control-allow-headers': 'content-type,x-bluehaven-token',
+    },
   },
-});
+);
 
 const safeFile = (name) => (name.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^\.+/, '') || 'upload').slice(-120);
 const encodePath = (value) => value.split('/').map(encodeURIComponent).join('/');
