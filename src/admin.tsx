@@ -22,6 +22,20 @@ type BlueHavenWindow = Window & { __bluehavenRetryUpload?: typeof uploadRetry; _
 (window as BlueHavenWindow).__bluehavenRetryUpload = uploadRetry;
 (window as BlueHavenWindow).__bluehavenCancelUpload = (id) => uploadControllers.get(id)?.abort();
 
+async function waitForRegisteredMedia(mediaId: string, projectId: string) {
+  const attempts = 10;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const response = await nativeFetch(`/api/portfolio?media_check=${encodeURIComponent(mediaId)}&project=${encodeURIComponent(projectId)}&t=${Date.now()}`, { cache: 'no-store' });
+    if (response.ok) {
+      const data = await response.json().catch(() => null);
+      const registered = Array.isArray(data?.media) && data.media.some((media: { id?: string; project_id?: string }) => media.id === mediaId && media.project_id === projectId);
+      if (registered) return data;
+    }
+    if (attempt < attempts - 1) await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  throw new Error('Image uploaded, but the portfolio manifest has not confirmed it yet. Please retry in a moment.');
+}
+
 window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
   if (url.endsWith('/api/portfolio') && init?.method === 'POST' && typeof init.body === 'string') {
@@ -47,10 +61,11 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Res
               clientPayload: JSON.stringify({ mediaId, projectId: String(payload.project_id), fileName: String(payload.file_name || 'upload'), mimeType: mime, altText: String(payload.alt_text || 'BlueHaven Studio work') }),
             });
             emit('bluehaven:upload-stage', { id: uploadKey, status: 'verifying', progress: 100 });
-            emit('bluehaven:upload-stage', { id: uploadKey, status: 'saving', progress: 100 });
             const finalized = await nativeFetch('/api/blob-upload', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'finalize', blob_url: blob.url, mediaId, projectId: String(payload.project_id), fileName: String(payload.file_name || 'upload'), mimeType: mime, altText: String(payload.alt_text || 'BlueHaven Studio work') }), signal: controller.signal });
             const finalizeData = await finalized.json();
             if (!finalized.ok || !finalizeData?.ok) throw new Error(finalizeData?.error || 'Image uploaded but could not be registered in the portfolio');
+            emit('bluehaven:upload-stage', { id: uploadKey, status: 'saving', progress: 100 });
+            await waitForRegisteredMedia(mediaId, String(payload.project_id));
             emit('bluehaven:upload-complete', { id: uploadKey, progress: 100 });
             return new Response(JSON.stringify({ ok: true, id: mediaId, url: finalizeData.url || blob.url, optimized: true }), { status: 200, headers: { 'content-type': 'application/json' } });
           } catch (error) {
