@@ -25,7 +25,7 @@ export default async function handler(req: Req, res: Res) {
   try {
     if (req.method === 'GET' && q.get('media')) {
       const mediaId = q.get('media')!; const media = await getMedia(mediaId);
-      if (!media || !media.storage_key || !isPortfolioStorageKey(media.storage_key) || !media.storage_key.startsWith(`portfolio/${media.project_id}/${mediaId}-`)) return res.status(404).end('Not found');
+      if (!media || !media.storage_key || !isPortfolioStorageKey(media.storage_key) || !media.storage_key.startsWith(`portfolio/${media.project_id}/`)) return res.status(404).end('Not found');
       try { const upstream = await readObject(media.storage_key); const contentType = upstream.headers.get('content-type') || media.mime_type; const contentLength = upstream.headers.get('content-length'); res.status(200).setHeader('content-type', contentType); if (contentLength) res.setHeader('content-length', contentLength); res.setHeader('cache-control', 'public, max-age=31536000, immutable'); res.setHeader('x-content-type-options', 'nosniff'); return res.end(Buffer.from(await upstream.arrayBuffer())); } catch (error) { console.error('BlueHaven public media delivery error:', error); return res.status(404).end('Not found'); }
     }
     if (req.method === 'GET') {
