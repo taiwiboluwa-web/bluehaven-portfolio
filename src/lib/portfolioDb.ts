@@ -1,5 +1,5 @@
 import { neon } from '@neondatabase/serverless';
-import { neonMediaGatewayUrl } from './neonMediaUrl';
+import { neonMediaGatewayUrl } from './neonMediaUrl.js';
 
 export type Layout = 'portrait' | 'landscape' | 'square';
 export type PortfolioProject = { id: string; slug: string; name: string; category: string; description: string; website_url: string | null; visible: boolean; sort_order: number; gallery_layout: Layout; created_at: string; updated_at: string };
