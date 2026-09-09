@@ -32,7 +32,8 @@ export default async function handler(req: Req, res: Res) {
 
     const upstream = await fetch(gatewayUrl.toString(), { cache: 'no-store' });
     if (!upstream.ok || !upstream.body) {
-      console.error('BlueHaven media upstream failed:', upstream.status, key);
+      const body = await upstream.text().catch(() => '');
+      console.error('BlueHaven media upstream failed:', upstream.status, key, body.slice(0, 500));
       return res.status(404).end('Not found');
     }
 
