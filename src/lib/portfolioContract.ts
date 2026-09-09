@@ -31,5 +31,5 @@ export function assertUploadSize(bytes: number) {
 }
 
 export function publicMediaUrl(mediaId: string) {
-  return `/api/portfolio?media=${encodeURIComponent(mediaId)}`;
+  return `/api/media?id=${encodeURIComponent(mediaId)}`;
 }
