@@ -1,4 +1,5 @@
 import { neon } from '@neondatabase/serverless';
+import { neonMediaGatewayUrl } from './neonMediaUrl';
 
 export type Layout = 'portrait' | 'landscape' | 'square';
 export type PortfolioProject = { id: string; slug: string; name: string; category: string; description: string; website_url: string | null; visible: boolean; sort_order: number; gallery_layout: Layout; created_at: string; updated_at: string };
@@ -19,7 +20,22 @@ function shapeProject(row: any): PortfolioProject {
   return { id: String(row.id), slug: String(row.slug), name: String(row.name), category: String(row.category || ''), description: String(row.description || ''), website_url: row.website_url == null ? null : String(row.website_url), visible: Boolean(row.visible), sort_order: Number(row.sort_order || 0), gallery_layout: normalizeLayout(row.gallery_layout), created_at: new Date(row.created_at).toISOString(), updated_at: new Date(row.updated_at).toISOString() };
 }
 function shapeMedia(row: any): PortfolioMedia {
-  return { id: String(row.id), project_id: String(row.project_id), storage_url: String(row.storage_url), storage_key: row.storage_key == null ? null : String(row.storage_key), alt_text: String(row.alt_text || ''), media_type: 'image', sort_order: Number(row.sort_order || 0), featured: Boolean(row.featured), created_at: row.created_at ? new Date(row.created_at).toISOString() : undefined, updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : undefined, file_name: row.file_name == null ? null : String(row.file_name), mime_type: row.mime_type == null ? null : String(row.mime_type) };
+  const storageKey = row.storage_key == null ? null : String(row.storage_key);
+  const storedUrl = String(row.storage_url || '');
+  return {
+    id: String(row.id),
+    project_id: String(row.project_id),
+    storage_url: storageKey ? neonMediaGatewayUrl(storageKey) : storedUrl,
+    storage_key: storageKey,
+    alt_text: String(row.alt_text || ''),
+    media_type: 'image',
+    sort_order: Number(row.sort_order || 0),
+    featured: Boolean(row.featured),
+    created_at: row.created_at ? new Date(row.created_at).toISOString() : undefined,
+    updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : undefined,
+    file_name: row.file_name == null ? null : String(row.file_name),
+    mime_type: row.mime_type == null ? null : String(row.mime_type),
+  };
 }
 
 export async function readPortfolio() {
