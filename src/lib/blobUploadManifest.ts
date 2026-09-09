@@ -29,3 +29,20 @@ export function appendUploadedMedia<T extends { media: any[] }>(manifest: T, upl
     media: [...manifest.media.filter((entry: any) => entry.id !== uploaded.id), item],
   };
 }
+
+/**
+ * Reconstruct project media from the manifest's canonical media list.
+ * This deliberately ignores any stale/legacy `project.media` property so the
+ * public gallery always reflects the same media records the admin sees.
+ */
+export function attachManifestMedia<T extends { projects: any[]; media: any[] }>(manifest: T): T {
+  return {
+    ...manifest,
+    projects: manifest.projects.map((project: any) => ({
+      ...project,
+      media: manifest.media
+        .filter((media: any) => media.project_id === project.id)
+        .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
+    })),
+  };
+}
