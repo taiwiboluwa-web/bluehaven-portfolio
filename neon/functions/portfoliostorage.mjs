@@ -13,7 +13,7 @@ const response = (data, status = 200, origin = '*') => new Response(
       'content-type': 'application/json',
       'cache-control': 'no-store',
       'access-control-allow-origin': origin,
-      'access-control-allow-methods': 'POST,DELETE,OPTIONS',
+      'access-control-allow-methods': 'GET,POST,DELETE,OPTIONS',
       'access-control-allow-headers': 'content-type,x-bluehaven-token',
     },
   },
@@ -82,6 +82,12 @@ async function putObject(key, bytes, contentType) {
   if (!res.ok) throw new Error(`Neon Object Storage PUT failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
 }
 
+async function getObject(key) {
+  const emptyHash = createHash('sha256').update(Buffer.alloc(0)).digest('hex');
+  const signed = signedRequest('GET', key, emptyHash);
+  return fetch(signed.url, { method: 'GET', headers: signed.headers });
+}
+
 async function deleteObject(key) {
   const emptyHash = createHash('sha256').update(Buffer.alloc(0)).digest('hex');
   const signed = signedRequest('DELETE', key, emptyHash);
@@ -93,7 +99,29 @@ export default {
   async fetch(request) {
     const origin = request.headers.get('origin') || '*';
     if (request.method === 'OPTIONS') return response({ ok: true }, 204, origin);
+
     try {
+      if (request.method === 'GET') {
+        const key = new URL(request.url).searchParams.get('key') || '';
+        if (!key.startsWith('portfolio/') || key.includes('..')) return response({ error: 'Invalid media key' }, 400, origin);
+        const object = await getObject(key);
+        if (!object.ok || !object.body) {
+          console.error('bluehaven storage GET failed', object.status, key);
+          return response({ error: `Neon Object Storage GET failed (${object.status})` }, 404, origin);
+        }
+        const headers = new Headers();
+        const contentType = object.headers.get('content-type');
+        const contentLength = object.headers.get('content-length');
+        if (contentType) headers.set('content-type', contentType);
+        if (contentLength) headers.set('content-length', contentLength);
+        headers.set('cache-control', 'public, max-age=31536000, immutable');
+        headers.set('access-control-allow-origin', '*');
+        headers.set('access-control-allow-methods', 'GET,OPTIONS');
+        headers.set('access-control-allow-headers', 'content-type');
+        headers.set('x-content-type-options', 'nosniff');
+        return new Response(object.body, { status: 200, headers });
+      }
+
       const token = request.headers.get('x-bluehaven-token') || '';
       const claims = await verifyToken(token);
       const key = claims.action === 'delete'
