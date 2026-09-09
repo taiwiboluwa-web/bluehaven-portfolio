@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, X, Grid2X2, List } from 'lucide-react';
+import { selectProjectById } from '../lib/portfolioSelection';
 import './SiteEnhancements.css';
 
 type Layout = 'portrait' | 'landscape' | 'square';
@@ -197,13 +198,7 @@ function initials(name: string) {
   );
 }
 
-function ProjectGallery({
-  project,
-  onClose,
-}: {
-  project: Project;
-  onClose: () => void;
-}) {
+function ProjectGallery({ project, onClose }: { project: Project; onClose: () => void }) {
   const images = orderedMedia(project);
   const [index, setIndex] = useState(0);
   const current = images[index];
@@ -226,7 +221,6 @@ function ProjectGallery({
     document.addEventListener('keydown', onKey);
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-
     return () => {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = previous;
@@ -252,9 +246,7 @@ function ProjectGallery({
             <p className="text-[10px] font-semibold uppercase tracking-[.25em] text-white/45">
               {project.category || 'Creative Work'}
             </p>
-            <h3 className="truncate text-lg font-bold text-white md:text-2xl">
-              {project.name}
-            </h3>
+            <h3 className="truncate text-lg font-bold text-white md:text-2xl">{project.name}</h3>
           </div>
           <button
             type="button"
@@ -288,9 +280,7 @@ function ProjectGallery({
                 <>
                   <button
                     type="button"
-                    onClick={() =>
-                      setIndex((value) => (value - 1 + images.length) % images.length)
-                    }
+                    onClick={() => setIndex((value) => (value - 1 + images.length) % images.length)}
                     className="absolute left-3 grid h-12 w-12 place-items-center rounded-full border border-white/15 bg-black/45 text-white backdrop-blur transition hover:bg-white/10 md:left-7"
                     aria-label="Previous image"
                   >
@@ -309,12 +299,9 @@ function ProjectGallery({
 
               <div className="absolute inset-x-0 bottom-0 border-t border-white/10 bg-black/35 px-4 py-3 backdrop-blur md:px-8">
                 <div className="mb-3 flex items-center justify-between text-xs text-white/45">
-                  <span>
-                    {index + 1} / {images.length}
-                  </span>
+                  <span>{index + 1} / {images.length}</span>
                   <span className="hidden md:inline">Use ← → to browse · Esc to close</span>
                 </div>
-
                 {images.length > 1 && (
                   <div className="flex gap-2 overflow-x-auto pb-1">
                     {images.map((image, imageIndex) => (
@@ -350,16 +337,11 @@ function ProjectGallery({
               <p className="mt-7 text-xs font-bold uppercase tracking-[.25em] text-[#ffde59]">
                 {project.category || 'Creative Work'}
               </p>
-              <h3 className="mt-3 text-3xl font-black text-white md:text-5xl">
-                {project.name}
-              </h3>
+              <h3 className="mt-3 text-3xl font-black text-white md:text-5xl">{project.name}</h3>
               <p className="mt-4 text-sm leading-7 text-white/55">
-                {project.description ||
-                  'This project has been published, but no media has been added yet.'}
+                {project.description || 'This project has been published, but no media has been added yet.'}
               </p>
-              <p className="mt-7 text-xs uppercase tracking-[.18em] text-white/30">
-                No project images yet
-              </p>
+              <p className="mt-7 text-xs uppercase tracking-[.18em] text-white/30">No project images yet</p>
             </div>
           )}
         </div>
@@ -382,12 +364,8 @@ function WorkCard({
   const fallback = (
     <div className="grid h-full place-items-center bg-[radial-gradient(circle_at_50%_20%,rgba(127,86,214,.38),transparent_58%),linear-gradient(135deg,#17131f,#0d0d10)]">
       <div className="text-center">
-        <div className="text-4xl font-black tracking-tight text-[#ffde59]">
-          {initials(project.name)}
-        </div>
-        <div className="mt-2 text-[9px] font-bold uppercase tracking-[.22em] text-white/30">
-          BlueHaven Studios
-        </div>
+        <div className="text-4xl font-black tracking-tight text-[#ffde59]">{initials(project.name)}</div>
+        <div className="mt-2 text-[9px] font-bold uppercase tracking-[.22em] text-white/30">BlueHaven Studios</div>
       </div>
     </div>
   );
@@ -404,15 +382,8 @@ function WorkCard({
       >
         <div className="work-list-image">
           {image ? (
-            <img
-              src={image.storage_url}
-              alt={image.alt_text || project.name}
-              loading="lazy"
-              decoding="async"
-            />
-          ) : (
-            fallback
-          )}
+            <img src={image.storage_url} alt={image.alt_text || project.name} loading="lazy" decoding="async" />
+          ) : fallback}
         </div>
         <div className="work-list-copy">
           <div className="work-list-meta">
@@ -421,9 +392,7 @@ function WorkCard({
           </div>
           <h3>{project.name}</h3>
           {project.description && <p>{project.description}</p>}
-          <span className="work-list-action">
-            {image ? 'Open project gallery →' : 'Open project →'}
-          </span>
+          <span className="work-list-action">{image ? 'Open project gallery →' : 'Open project →'}</span>
         </div>
       </motion.button>
     );
@@ -440,33 +409,16 @@ function WorkCard({
     >
       <div className={`${layoutClass(project.gallery_layout)} work-grid-image`}>
         {image ? (
-          <img
-            src={image.storage_url}
-            alt={image.alt_text || project.name}
-            loading="lazy"
-            decoding="async"
-          />
-        ) : (
-          fallback
-        )}
+          <img src={image.storage_url} alt={image.alt_text || project.name} loading="lazy" decoding="async" />
+        ) : fallback}
       </div>
       <div className="p-6">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <p className="text-[10px] font-bold uppercase tracking-[.2em] text-white/40">
-            {project.category || 'Creative Work'}
-          </p>
-          {project.featured && (
-            <span className="text-[10px] font-bold uppercase tracking-[.15em] text-[#ffde59]">
-              Featured
-            </span>
-          )}
+          <p className="text-[10px] font-bold uppercase tracking-[.2em] text-white/40">{project.category || 'Creative Work'}</p>
+          {project.featured && <span className="text-[10px] font-bold uppercase tracking-[.15em] text-[#ffde59]">Featured</span>}
         </div>
         <h3 className="text-xl font-bold text-white">{project.name}</h3>
-        {project.description && (
-          <p className="mt-2 line-clamp-2 text-sm leading-6 text-white/55">
-            {project.description}
-          </p>
-        )}
+        {project.description && <p className="mt-2 line-clamp-2 text-sm leading-6 text-white/55">{project.description}</p>}
         <p className="mt-5 text-xs font-semibold uppercase tracking-[.2em] text-white/45 transition group-hover:text-white">
           {image ? 'Open project gallery →' : 'Open project →'}
         </p>
@@ -478,13 +430,17 @@ function WorkCard({
 function RecentWork() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [host, setHost] = useState<HTMLElement | null>(null);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [filter, setFilter] = useState('All');
   const [view, setView] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('bluehaven-work-view');
     return saved === 'list' ? 'list' : 'grid';
   });
   const isFullWork = window.location.pathname === '/work' || window.location.pathname === '/work/';
+  const selectedProject = useMemo(
+    () => selectProjectById(projects, selectedProjectId),
+    [projects, selectedProjectId],
+  );
 
   useEffect(() => {
     const process = document.getElementById('process');
@@ -499,25 +455,19 @@ function RecentWork() {
     } else {
       (footer?.parentElement || document.body).insertBefore(node, footer || null);
     }
-
     setHost(node);
 
     const load = () =>
       fetch('/api/portfolio?mode=public', { cache: 'no-store' })
         .then((response) =>
-          response.ok
-            ? response.json()
-            : Promise.reject(new Error('Portfolio request failed')),
+          response.ok ? response.json() : Promise.reject(new Error('Portfolio request failed')),
         )
-        .then((data) =>
-          setProjects(Array.isArray(data.projects) ? data.projects : []),
-        )
+        .then((data) => setProjects(Array.isArray(data.projects) ? data.projects : []))
         .catch(() => {});
 
     load();
     const timer = window.setInterval(load, 10000);
     window.addEventListener('focus', load);
-
     return () => {
       window.clearInterval(timer);
       window.removeEventListener('focus', load);
@@ -529,15 +479,15 @@ function RecentWork() {
     localStorage.setItem('bluehaven-work-view', view);
   }, [view]);
 
+  useEffect(() => {
+    if (selectedProjectId && !selectedProject) setSelectedProjectId(null);
+  }, [selectedProject, selectedProjectId]);
+
   const categories = useMemo(
     () => [
       'All',
       ...Array.from(
-        new Set(
-          projects
-            .map((project) => project.category?.trim())
-            .filter(Boolean) as string[],
-        ),
+        new Set(projects.map((project) => project.category?.trim()).filter(Boolean) as string[]),
       ),
     ],
     [projects],
@@ -559,20 +509,13 @@ function RecentWork() {
   return (
     <>
       {createPortal(
-        <section
-          data-bluehaven-work-grid
-          aria-labelledby="bluehaven-work-heading"
-          className="mx-auto max-w-7xl px-5 py-20 md:px-10 md:py-24"
-        >
+        <section data-bluehaven-work-grid aria-labelledby="bluehaven-work-heading" className="mx-auto max-w-7xl px-5 py-20 md:px-10 md:py-24">
           <div className="mb-8 flex flex-col gap-6 md:mb-10 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="mb-3 text-xs font-semibold uppercase tracking-[.25em] text-[#ffde59]">
                 {isFullWork ? 'BlueHaven portfolio' : 'Selected work'}
               </p>
-              <h2
-                id="bluehaven-work-heading"
-                className="text-4xl font-black tracking-tight text-white md:text-6xl"
-              >
+              <h2 id="bluehaven-work-heading" className="text-4xl font-black tracking-tight text-white md:text-6xl">
                 {isFullWork ? 'All Work' : 'Selected Work'}
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-white/50 md:text-base">
@@ -581,12 +524,8 @@ function RecentWork() {
                   : 'A focused selection of work from the BlueHaven portfolio.'}
               </p>
             </div>
-
             {!isFullWork && (
-              <a
-                href="/work"
-                className="inline-flex w-fit items-center rounded-full border border-white/15 px-5 py-3 text-xs font-bold uppercase tracking-[.16em] text-white transition hover:border-white/40 hover:bg-white/5"
-              >
+              <a href="/work" className="inline-flex w-fit items-center rounded-full border border-white/15 px-5 py-3 text-xs font-bold uppercase tracking-[.16em] text-white transition hover:border-white/40 hover:bg-white/5">
                 View All Work
               </a>
             )}
@@ -611,25 +550,12 @@ function RecentWork() {
                   </button>
                 ))}
               </div>
-
               <div className="work-view-toggle" role="group" aria-label="Work view">
-                <button
-                  type="button"
-                  className={view === 'grid' ? 'active' : ''}
-                  aria-pressed={view === 'grid'}
-                  onClick={() => setView('grid')}
-                >
-                  <Grid2X2 size={16} />
-                  Grid
+                <button type="button" className={view === 'grid' ? 'active' : ''} aria-pressed={view === 'grid'} onClick={() => setView('grid')}>
+                  <Grid2X2 size={16} /> Grid
                 </button>
-                <button
-                  type="button"
-                  className={view === 'list' ? 'active' : ''}
-                  aria-pressed={view === 'list'}
-                  onClick={() => setView('list')}
-                >
-                  <List size={16} />
-                  List
+                <button type="button" className={view === 'list' ? 'active' : ''} aria-pressed={view === 'list'} onClick={() => setView('list')}>
+                  <List size={16} /> List
                 </button>
               </div>
             </div>
@@ -640,16 +566,14 @@ function RecentWork() {
               <WorkCard
                 key={project.id}
                 project={project}
-                onOpen={() => setSelectedProject(project)}
+                onOpen={() => setSelectedProjectId(project.id)}
                 list={view === 'list'}
               />
             ))}
           </div>
 
           {isFullWork && !visibleProjects.length && (
-            <p className="py-12 text-center text-sm text-white/40">
-              No published work matches this category.
-            </p>
+            <p className="py-12 text-center text-sm text-white/40">No published work matches this category.</p>
           )}
         </section>,
         host,
@@ -658,7 +582,7 @@ function RecentWork() {
       {selectedProject && (
         <ProjectGallery
           project={selectedProject}
-          onClose={() => setSelectedProject(null)}
+          onClose={() => setSelectedProjectId(null)}
         />
       )}
     </>
@@ -672,10 +596,7 @@ function AdminFooterLink() {
     const timer = window.setInterval(() => {
       const footer = document.querySelector('footer');
       if (!footer) return;
-
-      const anchor = Array.from(footer.querySelectorAll('a')).find((item) =>
-        /privacy|terms|status/i.test(item.textContent || ''),
-      );
+      const anchor = Array.from(footer.querySelectorAll('a')).find((item) => /privacy|terms|status/i.test(item.textContent || ''));
       const parent = anchor?.parentElement || footer;
       const node = document.createElement('span');
       node.className = 'ml-3 inline-flex';
@@ -683,17 +604,12 @@ function AdminFooterLink() {
       setHost(node);
       window.clearInterval(timer);
     }, 250);
-
     return () => window.clearInterval(timer);
   }, []);
 
   return host
     ? createPortal(
-        <a
-          href="/admin"
-          className="text-inherit opacity-70 transition hover:opacity-100 hover:text-white"
-          title="BlueHaven Admin"
-        >
+        <a href="/admin" className="text-inherit opacity-70 transition hover:opacity-100 hover:text-white" title="BlueHaven Admin">
           Admin
         </a>,
         host,
