@@ -3,7 +3,7 @@ import { createHash, createHmac } from 'node:crypto';
 const BUCKET = 'bluehaven-portfolio-media';
 const MAX_BYTES = 100 * 1024 * 1024;
 const VERIFY_URL = process.env.BLUEHAVEN_VERIFY_URL || 'https://www.bluehavens.name.ng/api/neon-storage-verify';
-const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']);
+const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'image/avif']);
 
 const response = (data, status = 200, origin = '*') => new Response(
   status === 204 || status === 205 ? null : JSON.stringify(data),
