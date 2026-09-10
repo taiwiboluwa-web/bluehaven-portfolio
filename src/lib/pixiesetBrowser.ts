@@ -31,7 +31,7 @@ export function parsePixiesetBrowserSnapshot(value: unknown): PixiesetPreview | 
 
 export function buildPixiesetCaptureScript(targetOrigin: string) {
   const origin = new URL(targetOrigin).origin;
-  const payload = `window.opener&&window.opener.postMessage({type:'bluehaven-pixieset-snapshot',url:location.href,html:document.documentElement.outerHTML},${JSON.stringify(origin)});void(0);`;
+  const payload = `(async()=>{let last=0;for(let i=0;i<20;i++){window.scrollTo(0,document.body.scrollHeight);await new Promise(r=>setTimeout(r,350));const height=document.body.scrollHeight;if(height===last)break;last=height}window.scrollTo(0,0);await new Promise(r=>setTimeout(r,500));window.opener&&window.opener.postMessage({type:'bluehaven-pixieset-snapshot',url:location.href,html:document.documentElement.outerHTML},${JSON.stringify(origin)})})()`;
   return `javascript:${encodeURIComponent(payload).replace(/%3A/gi, ':')}`;
 }
 
