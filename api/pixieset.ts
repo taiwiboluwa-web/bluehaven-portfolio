@@ -4,6 +4,7 @@ import { addMedia, createProject, deleteMediaRecord, deleteProject, readPortfoli
 import { assertUploadSize, buildPortfolioStorageKey, safeStorageFileName } from '../src/lib/portfolioContract.js';
 import { issueNeonStorageToken } from '../src/lib/neonStorageAuth.js';
 import { isAllowedPixiesetImageMimeType, isBlockedPixiesetIp, parsePixiesetHtml, parsePixiesetPhotoPayload, validatePixiesetUrl, type PixiesetPreview } from '../src/lib/pixieset.js';
+import { isPixiesetBrowserSnapshot, parsePixiesetBrowserSnapshot } from '../src/lib/pixiesetBrowser.js';
 import { safeSlug } from '../src/lib/adminValidation.js';
 
 type Req = { method?: string; headers?: Record<string, string | undefined>; body?: unknown };
@@ -15,6 +16,13 @@ const MAX_IMAGE_BYTES = 100 * 1024 * 1024;
 const MAX_TOTAL_IMAGE_BYTES = 500 * 1024 * 1024;
 const MAX_IMAGES = 50;
 const secret = () => process.env.BLUEHAVEN_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '';
+
+class PixiesetBrowserAssistRequired extends Error {
+  constructor(public readonly status: number) {
+    super('Pixieset blocked the server request. Continue with the browser-assisted import below.');
+    this.name = 'PixiesetBrowserAssistRequired';
+  }
+}
 
 function header(req: Req, name: string) {
   const headers = req.headers || {};
@@ -107,15 +115,15 @@ async function fetchChecked(raw: string, kind: 'gallery' | 'image') {
 async function loadPreview(rawUrl: string): Promise<PixiesetPreview> {
   const source = validatePixiesetUrl(rawUrl);
   const fetched = await fetchChecked(source.href, 'gallery');
-  if (!fetched.response.ok) throw new Error(`Pixieset gallery could not be read (${fetched.response.status}).`);
+  if (!fetched.response.ok) {
+    if (fetched.response.status === 403) throw new PixiesetBrowserAssistRequired(403);
+    throw new Error(`Pixieset gallery could not be read (${fetched.response.status}).`);
+  }
   const contentType = fetched.response.headers.get('content-type') || '';
   if (contentType && !/html|text\//i.test(contentType)) throw new Error('The Pixieset URL did not return a public gallery page.');
   const html = new TextDecoder().decode(await readLimited(fetched.response, MAX_HTML_BYTES));
   const preview = parsePixiesetHtml(html, fetched.url.href);
 
-  // Gallery photos are loaded lazily by Pixieset's public client endpoint.
-  // Try it when the page exposes the collection bootstrap values; the HTML
-  // parser remains the safe fallback for older or customized gallery themes.
   const id = html.match(/collectionId['"]?\s*:\s*(\d+)/i)?.[1];
   const key = html.match(/collectionUrlKey['"]?\s*:\s*['"]([^'"]+)/i)?.[1];
   const gallery = html.match(/currentGallery['"]?\s*:\s*['"]([^'"]+)/i)?.[1] || 'highlights';
@@ -144,6 +152,25 @@ async function loadPreview(rawUrl: string): Promise<PixiesetPreview> {
   return preview;
 }
 
+function duplicateProject(current: Awaited<ReturnType<typeof readPortfolio>>, source: URL) {
+  return current.projects.find((project) => {
+    if (!project.website_url) return false;
+    try { return sourceKey(validatePixiesetUrl(project.website_url)) === sourceKey(source); } catch { return false; }
+  });
+}
+
+function previewFromBrowserSnapshot(sourceUrl: string, snapshot: unknown) {
+  if (!isPixiesetBrowserSnapshot(snapshot)) throw new Error('The browser capture is missing or invalid. Open the public Pixieset gallery and capture it again.');
+  const captured = new URL(String(snapshot.url));
+  const source = validatePixiesetUrl(sourceUrl);
+  if (source.origin !== captured.origin || source.pathname.replace(/\/+$/, '') !== captured.pathname.replace(/\/+$/, '')) {
+    throw new Error('The browser capture does not match the Pixieset gallery URL entered in Admin.');
+  }
+  const preview = parsePixiesetBrowserSnapshot(snapshot);
+  if (!preview?.photos.length) throw new Error('The browser could not expose any public gallery images. If the collection is password-protected, import it using files downloaded from Pixieset instead.');
+  return preview;
+}
+
 async function uploadImage(projectId: string, mediaId: string, fileName: string, bytes: Uint8Array, mimeType: string) {
   if (!isAllowedPixiesetImageMimeType(mimeType)) throw new Error(`Unsupported external image type: ${mimeType || 'unknown'}.`);
   assertUploadSize(bytes.byteLength);
@@ -167,12 +194,9 @@ async function deleteUploadedImage(projectId: string, storageKey: string) {
 
 async function importGallery(body: Record<string, unknown>) {
   const source = validatePixiesetUrl(String(body.source_url || ''));
-  const preview = await loadPreview(source.href);
+  const preview = body.browser_snapshot ? previewFromBrowserSnapshot(source.href, body.browser_snapshot) : await loadPreview(source.href);
   const current = await readPortfolio();
-  const duplicate = current.projects.find((project) => {
-    if (!project.website_url) return false;
-    try { return sourceKey(validatePixiesetUrl(project.website_url)) === sourceKey(source); } catch { return false; }
-  });
+  const duplicate = duplicateProject(current, source);
   if (duplicate) return { duplicate: true, project: duplicate };
   const projectId = randomUUID();
   const name = String(body.name || preview.title).trim().slice(0, 120) || preview.title;
@@ -220,22 +244,30 @@ async function importGallery(body: Record<string, unknown>) {
   return { duplicate: false, project, imported: imported.length, expected: preview.expectedPhotoCount };
 }
 
+async function previewResponse(body: Record<string, unknown>) {
+  const source = validatePixiesetUrl(String(body.source_url || ''));
+  const preview = body.browser_snapshot ? previewFromBrowserSnapshot(source.href, body.browser_snapshot) : await loadPreview(source.href);
+  const current = await readPortfolio();
+  const duplicate = duplicateProject(current, source);
+  return { ok: true, preview: { ...preview, photos: preview.photos.slice(0, MAX_IMAGES) }, duplicate: duplicate ? { id: duplicate.id, name: duplicate.name } : null };
+}
+
 export default async function handler(req: Req, res: Res) {
   try {
     if (req.method !== 'POST') return send(res, { error: 'Method not allowed' }, 405);
     if (!authenticated(req)) return send(res, { error: 'Unauthorized' }, 401);
     const body = bodyOf(req);
-    if (body.action === 'preview') {
-      const preview = await loadPreview(String(body.source_url || ''));
-      const current = await readPortfolio();
-      const source = validatePixiesetUrl(String(body.source_url || ''));
-      const duplicate = current.projects.find((project) => {
-        if (!project.website_url) return false;
-        try { return sourceKey(validatePixiesetUrl(project.website_url)) === sourceKey(source); } catch { return false; }
-      });
-      return send(res, { ok: true, preview: { ...preview, photos: preview.photos.slice(0, MAX_IMAGES) }, duplicate: duplicate ? { id: duplicate.id, name: duplicate.name } : null });
+    if (body.action === 'preview' || body.action === 'browser_preview') {
+      try {
+        return send(res, await previewResponse(body));
+      } catch (error) {
+        if (error instanceof PixiesetBrowserAssistRequired) {
+          return send(res, { error: error.message, code: 'BROWSER_ASSIST_REQUIRED', status: error.status }, 409);
+        }
+        throw error;
+      }
     }
-    if (body.action === 'import') return send(res, { ok: true, ...(await importGallery(body)) });
+    if (body.action === 'import' || body.action === 'browser_import') return send(res, { ok: true, ...(await importGallery(body)) });
     return send(res, { error: 'Unknown action' }, 400);
   } catch (error) {
     console.error('BlueHaven Pixieset API error:', error);
