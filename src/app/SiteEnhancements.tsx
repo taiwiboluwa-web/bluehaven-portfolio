@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, X, Grid2X2, List } from 'lucide-react';
@@ -24,153 +24,6 @@ type Project = {
   media: Media[];
   featured?: boolean | null;
 };
-
-const palettes = [
-  { body: '#7f56d6', accent: '#ffde59', eye: '#111111' },
-  { body: '#5d7cff', accent: '#ffde59', eye: '#111111' },
-  { body: '#ff5c8a', accent: '#7f56d6', eye: '#111111' },
-  { body: '#16b88b', accent: '#ffde59', eye: '#111111' },
-];
-
-const buddyMessages = [
-  'Need a little creative chaos? 👀',
-  'I found something interesting on this page.',
-  'BlueHaven mode: ON.',
-  'Tap me. I promise I’m not judging your design.',
-];
-
-export function getBuddyPalette(index: number) {
-  return palettes[Math.abs(index) % palettes.length];
-}
-
-export function getBuddyMessage(index: number) {
-  return buddyMessages[Math.abs(index) % buddyMessages.length];
-}
-
-function PixelBuddy({ palette }: { palette: ReturnType<typeof getBuddyPalette> }) {
-  const style = {
-    '--buddy-body': palette.body,
-    '--buddy-accent': palette.accent,
-    '--buddy-eye': palette.eye,
-  } as CSSProperties;
-
-  return (
-    <div className="buddy-sprite" style={style} aria-hidden="true">
-      <span className="buddy-shadow" />
-      <span className="buddy-tail" />
-      <span className="buddy-body" />
-      <span className="buddy-head" />
-      <span className="buddy-eye buddy-eye-left" />
-      <span className="buddy-eye buddy-eye-right" />
-      <span className="buddy-eye-glint buddy-glint-left" />
-      <span className="buddy-eye-glint buddy-glint-right" />
-      <span className="buddy-leg buddy-leg-left" />
-      <span className="buddy-leg buddy-leg-right" />
-      <span className="buddy-foot buddy-foot-left" />
-      <span className="buddy-foot buddy-foot-right" />
-      <span className="buddy-cheek buddy-cheek-left" />
-      <span className="buddy-cheek buddy-cheek-right" />
-    </div>
-  );
-}
-
-function Skales() {
-  const [disabled, setDisabled] = useState(
-    () => localStorage.getItem('bluehaven-skales-disabled') === '1',
-  );
-  const [reduced, setReduced] = useState(false);
-  const [open, setOpen] = useState(true);
-  const [messageIndex, setMessageIndex] = useState(0);
-  const [paletteIndex, setPaletteIndex] = useState(0);
-
-  useEffect(() => {
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const sync = () => setReduced(media.matches);
-    sync();
-    media.addEventListener?.('change', sync);
-    return () => media.removeEventListener?.('change', sync);
-  }, []);
-
-  useEffect(() => {
-    if (disabled || reduced) return;
-    const timer = window.setInterval(() => {
-      setMessageIndex((value) => value + 1);
-      setPaletteIndex((value) => value + 1);
-    }, 9000);
-    return () => window.clearInterval(timer);
-  }, [disabled, reduced]);
-
-  if (disabled) return null;
-
-  const palette = getBuddyPalette(paletteIndex);
-  const message = getBuddyMessage(messageIndex);
-
-  return (
-    <div className="bluehaven-buddy-root" aria-label="BlueHaven creative companion">
-      <motion.div
-        className="buddy-stage"
-        initial={reduced ? false : { opacity: 0, y: 18, scale: 0.82 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.45, ease: 'easeOut' }}
-      >
-        {open && (
-          <motion.div
-            className="buddy-bubble"
-            initial={reduced ? false : { opacity: 0, y: 8, scale: 0.94 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.28 }}
-          >
-            <div className="buddy-bubble-top">
-              <span className="buddy-status-dot" />
-              <strong>Skales</strong>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Minimize Skales">
-                ×
-              </button>
-            </div>
-            <p>{message}</p>
-            <div className="buddy-actions">
-              <button type="button" onClick={() => setMessageIndex((value) => value + 1)}>
-                Surprise me
-              </button>
-              <button type="button" onClick={() => setOpen(false)}>
-                Later
-              </button>
-            </div>
-          </motion.div>
-        )}
-
-        <motion.button
-          type="button"
-          className="buddy-button"
-          onClick={() => {
-            setOpen((value) => !value);
-            setMessageIndex((value) => value + 1);
-          }}
-          aria-label={open ? 'Minimize Skales' : 'Open Skales'}
-          animate={reduced ? undefined : { y: [0, -5, 0], rotate: [-1, 1, -1] }}
-          transition={
-            reduced
-              ? undefined
-              : { duration: 3.2, repeat: Infinity, ease: 'easeInOut' }
-          }
-        >
-          <PixelBuddy palette={palette} />
-        </motion.button>
-
-        <button
-          className="buddy-hide"
-          type="button"
-          onClick={() => {
-            localStorage.setItem('bluehaven-skales-disabled', '1');
-            setDisabled(true);
-          }}
-        >
-          Hide buddy
-        </button>
-      </motion.div>
-    </div>
-  );
-}
 
 function layoutClass(layout?: Layout) {
   if (layout === 'portrait') return 'aspect-[3/4]';
@@ -622,7 +475,6 @@ export default function SiteEnhancements() {
     <>
       <RecentWork />
       <AdminFooterLink />
-      <Skales />
     </>
   );
 }
