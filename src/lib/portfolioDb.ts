@@ -42,7 +42,7 @@ function shapeMedia(row: any): PortfolioMedia {
   const storageKey = String(row.storage_key || '');
   if (!storageKey) throw new Error(`Media ${id} has no Neon Object Storage key`);
   return {
-    id, project_id: String(row.project_id), storage_url: publicMediaUrl(id), storage_key: storageKey,
+    id, project_id: String(row.project_id), storage_url: publicMediaUrl(id, storageKey), storage_key: storageKey,
     alt_text: String(row.alt_text || ''), media_type: 'image', sort_order: Number(row.sort_order || 0),
     featured: Boolean(row.featured), created_at: row.created_at ? new Date(row.created_at).toISOString() : undefined,
     updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : undefined,
@@ -103,13 +103,13 @@ export async function addMedia(input: {
   const project = await sql`SELECT id FROM portfolio_projects WHERE id=${input.project_id} LIMIT 1`;
   if (!project[0]) throw new Error('Target portfolio project does not exist');
   await sql`INSERT INTO portfolio_media(id, project_id, storage_url, storage_key, alt_text, media_type, sort_order, featured, created_at, updated_at, file_data, file_name, mime_type, file_size, width, height)
-    VALUES(${input.id}, ${input.project_id}, ${publicMediaUrl(input.id)}, ${input.storage_key}, ${input.alt_text}, 'image', ${input.sort_order}, ${input.featured}, NOW(), NOW(), NULL, ${input.file_name}, ${input.mime_type}, ${input.file_size}, ${input.width ?? null}, ${input.height ?? null})
+    VALUES(${input.id}, ${input.project_id}, ${publicMediaUrl(input.id, input.storage_key)}, ${input.storage_key}, ${input.alt_text}, 'image', ${input.sort_order}, ${input.featured}, NOW(), NOW(), NULL, ${input.file_name}, ${input.mime_type}, ${input.file_size}, ${input.width ?? null}, ${input.height ?? null})
     ON CONFLICT(id) DO UPDATE SET project_id=EXCLUDED.project_id, storage_url=EXCLUDED.storage_url, storage_key=EXCLUDED.storage_key, alt_text=EXCLUDED.alt_text, sort_order=EXCLUDED.sort_order, featured=EXCLUDED.featured, file_name=EXCLUDED.file_name, mime_type=EXCLUDED.mime_type, file_size=EXCLUDED.file_size, width=EXCLUDED.width, height=EXCLUDED.height, updated_at=NOW()`;
 }
 
 export async function updateMediaUrl(id: string, storageKey: string, mimeType: string, fileSize: number, width: number | null, height: number | null, fileName: string) {
   const sql = getDb();
-  const rows = await sql`UPDATE portfolio_media SET storage_url=${publicMediaUrl(id)}, storage_key=${storageKey}, mime_type=${mimeType}, file_size=${fileSize}, width=${width}, height=${height}, file_name=${fileName}, updated_at=NOW() WHERE id=${id} RETURNING id`;
+  const rows = await sql`UPDATE portfolio_media SET storage_url=${publicMediaUrl(id, storageKey)}, storage_key=${storageKey}, mime_type=${mimeType}, file_size=${fileSize}, width=${width}, height=${height}, file_name=${fileName}, updated_at=NOW() WHERE id=${id} RETURNING id`;
   if (!rows[0]) throw new Error('Media not found');
 }
 
