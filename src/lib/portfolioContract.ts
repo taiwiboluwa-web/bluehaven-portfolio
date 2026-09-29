@@ -30,6 +30,11 @@ export function assertUploadSize(bytes: number) {
   }
 }
 
-export function publicMediaUrl(mediaId: string) {
-  return `/api/media?id=${encodeURIComponent(mediaId)}`;
+/**
+ * Include the storage key as a cache-busting version because optimization
+ * replaces the object behind the same media ID.
+ */
+export function publicMediaUrl(mediaId: string, storageKey = '') {
+  const version = storageKey ? `&v=${encodeURIComponent(storageKey)}` : '';
+  return `/api/media?id=${encodeURIComponent(mediaId)}${version}`;
 }
