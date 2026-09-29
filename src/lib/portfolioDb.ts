@@ -75,8 +75,13 @@ export async function readPublicPortfolio() {
 
 export async function createProject(input: PortfolioProject) {
   const sql = getDb();
+
+  // New projects are inserted at the top of the portfolio. Existing projects
+  // keep their relative order and are shifted down by one position.
+  await sql`UPDATE portfolio_projects SET sort_order=sort_order + 1, updated_at=NOW()`;
+
   await sql`INSERT INTO portfolio_projects(id, slug, name, category, description, website_url, visible, sort_order, gallery_layout, created_at, updated_at)
-    VALUES(${input.id}, ${input.slug}, ${input.name}, ${input.category}, ${input.description}, ${input.website_url}, ${input.visible}, ${input.sort_order}, ${JSON.stringify({ aspectRatio: input.gallery_layout })}::jsonb, ${input.created_at}, ${input.updated_at})`;
+    VALUES(${input.id}, ${input.slug}, ${input.name}, ${input.category}, ${input.description}, ${input.website_url}, ${input.visible}, 0, ${JSON.stringify({ aspectRatio: input.gallery_layout })}::jsonb, ${input.created_at}, ${input.updated_at})`;
 }
 
 export async function updateProject(input: { id: string; name: string; category: string; description: string; website_url: string | null; visible: boolean; gallery_layout: Layout }) {
