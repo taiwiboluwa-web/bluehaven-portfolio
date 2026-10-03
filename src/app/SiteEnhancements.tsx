@@ -117,18 +117,36 @@ function ProjectGallery({ project, onClose }: { project: Project; onClose: () =>
           {current ? (
             <>
               <AnimatePresence mode="wait">
-                <motion.img
-                  key={current.id}
-                  src={current.storage_url}
-                  alt={current.alt_text || project.name}
-                  className="max-h-full max-w-full object-contain"
-                  loading="eager"
-                  decoding="async"
-                  initial={{ opacity: 0, scale: 0.985 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.985 }}
-                  transition={{ duration: 0.2 }}
-                />
+                {current.media_type === 'video' ? (
+                  <motion.video
+                    key={current.id}
+                    src={current.storage_url}
+                    className="max-h-full max-w-full object-contain"
+                    controls
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    preload="metadata"
+                    initial={{ opacity: 0, scale: 0.985 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.985 }}
+                    transition={{ duration: 0.2 }}
+                  />
+                ) : (
+                  <motion.img
+                    key={current.id}
+                    src={current.storage_url}
+                    alt={current.alt_text || project.name}
+                    className="max-h-full max-w-full object-contain"
+                    loading="eager"
+                    decoding="async"
+                    initial={{ opacity: 0, scale: 0.985 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.985 }}
+                    transition={{ duration: 0.2 }}
+                  />
+                )}
               </AnimatePresence>
 
               {images.length > 1 && (
@@ -171,13 +189,17 @@ function ProjectGallery({ project, onClose }: { project: Project; onClose: () =>
                         }`}
                         aria-label={`Open image ${imageIndex + 1}`}
                       >
-                        <img
-                          src={image.storage_url}
-                          alt=""
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                          decoding="async"
-                        />
+                        {image.media_type === 'video' ? (
+                          <video src={image.storage_url} className="h-full w-full object-cover" muted autoPlay loop playsInline preload="metadata" />
+                        ) : (
+                          <img
+                            src={image.storage_url}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        )}
                       </button>
                     ))}
                   </div>
@@ -237,7 +259,11 @@ function WorkCard({
       >
         <div className="work-list-image">
           {image ? (
-            {image.media_type === 'video' ? <video src={image.storage_url} className="h-full w-full object-cover" muted autoPlay loop playsInline preload="metadata" /> : <img src={image.storage_url} alt={image.alt_text || project.name} loading="lazy" decoding="async" />}
+            {image.media_type === 'video' ? <video src={image.storage_url} className="h-full w-full object-cover" muted autoPlay loop playsInline preload="metadata" /> : {image.media_type === 'video' ? (
+              <video src={image.storage_url} className="h-full w-full object-cover" muted autoPlay loop playsInline preload="metadata" />
+            ) : (
+              <img src={image.storage_url} alt={image.alt_text || project.name} loading="lazy" decoding="async" />
+            )}}
           ) : fallback}
         </div>
         <div className="work-list-copy">
