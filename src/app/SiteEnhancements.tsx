@@ -14,6 +14,8 @@ type Media = {
   file_name?: string | null;
   sort_order?: number;
   featured?: boolean | null;
+  media_type?: 'image' | 'video';
+  mime_type?: string | null;
 };
 type Project = {
   id: string;
@@ -235,7 +237,7 @@ function WorkCard({
       >
         <div className="work-list-image">
           {image ? (
-            <img src={image.storage_url} alt={image.alt_text || project.name} loading="lazy" decoding="async" />
+            {image.media_type === 'video' ? <video src={image.storage_url} className="h-full w-full object-cover" muted autoPlay loop playsInline preload="metadata" /> : <img src={image.storage_url} alt={image.alt_text || project.name} loading="lazy" decoding="async" />}
           ) : fallback}
         </div>
         <div className="work-list-copy">
