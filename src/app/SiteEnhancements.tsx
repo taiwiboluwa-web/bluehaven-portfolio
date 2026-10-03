@@ -259,11 +259,11 @@ function WorkCard({
       >
         <div className="work-list-image">
           {image ? (
-            {image.media_type === 'video' ? <video src={image.storage_url} className="h-full w-full object-cover" muted autoPlay loop playsInline preload="metadata" /> : {image.media_type === 'video' ? (
+            image.media_type === 'video' ? (
               <video src={image.storage_url} className="h-full w-full object-cover" muted autoPlay loop playsInline preload="metadata" />
             ) : (
               <img src={image.storage_url} alt={image.alt_text || project.name} loading="lazy" decoding="async" />
-            )}}
+            )
           ) : fallback}
         </div>
         <div className="work-list-copy">
@@ -290,7 +290,11 @@ function WorkCard({
     >
       <div className={`${layoutClass(project.gallery_layout)} work-grid-image`}>
         {image ? (
-          <img src={image.storage_url} alt={image.alt_text || project.name} loading="lazy" decoding="async" />
+          image.media_type === 'video' ? (
+            <video src={image.storage_url} className="h-full w-full object-cover" muted autoPlay loop playsInline preload="metadata" />
+          ) : (
+            <img src={image.storage_url} alt={image.alt_text || project.name} loading="lazy" decoding="async" />
+          )
         ) : fallback}
       </div>
       <div className="p-6">
