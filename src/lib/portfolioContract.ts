@@ -1,11 +1,15 @@
 export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 
-export const ALLOWED_IMAGE_MIME = new Set([
+export const ALLOWED_MEDIA_MIME = new Set([
   'image/jpeg',
   'image/png',
   'image/webp',
   'image/gif',
   'image/svg+xml',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'video/x-m4v',
 ]);
 
 export function safeStorageFileName(name: string) {
@@ -20,8 +24,13 @@ export function isPortfolioStorageKey(key: string) {
   return /^portfolio\/[^/]+\/[^/]+-[^/]+$/.test(key);
 }
 
+export function assertAllowedMedia(mimeType: string) {
+  if (!ALLOWED_MEDIA_MIME.has(mimeType)) throw new Error('Unsupported media type. Use JPG, PNG, WebP, GIF, SVG, MP4, WebM or MOV.');
+}
+
+/** @deprecated Kept for image-only callers outside the portfolio workflow. */
 export function assertAllowedImage(mimeType: string) {
-  if (!ALLOWED_IMAGE_MIME.has(mimeType)) throw new Error('Unsupported image type');
+  if (!mimeType.startsWith('image/') || !ALLOWED_MEDIA_MIME.has(mimeType)) throw new Error('Unsupported image type');
 }
 
 export function assertUploadSize(bytes: number) {
