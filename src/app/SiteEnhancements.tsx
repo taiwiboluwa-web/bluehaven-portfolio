@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, X, Grid2X2, List } from 'lucide-react';
 import { selectProjectById } from '../lib/portfolioSelection';
 import SupportStudio from './SupportStudio';
+import ServicesMonetization from './ServicesMonetization';
 import './SiteEnhancements.css';
 
 type Layout = 'portrait' | 'landscape' | 'square';
@@ -503,10 +504,27 @@ function AdminFooterLink() {
     : null;
 }
 
+function ServicesMonetizationMount() {
+  const [host, setHost] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const services = document.getElementById('services');
+    if (!services) return;
+    const node = document.createElement('div');
+    node.id = 'bluehaven-services-monetization';
+    services.appendChild(node);
+    setHost(node);
+    return () => node.remove();
+  }, []);
+
+  return host ? createPortal(<ServicesMonetization />, host) : null;
+}
+
 export default function SiteEnhancements() {
   return (
     <>
       <RecentWork />
+      <ServicesMonetizationMount />
       <AdminFooterLink />
     </>
   );
