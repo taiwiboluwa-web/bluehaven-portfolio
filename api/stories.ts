@@ -18,6 +18,70 @@ type Res = {
 
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
 
+const PAYMENT_PRODUCTS = {
+  livestream: { name: 'Church Livestream Starter Pack', amount: 2500, downloadEnv: 'RESOURCE_LIVESTREAM_DOWNLOAD_URL' },
+  content: { name: 'Creator Content Planner', amount: 2000, downloadEnv: 'RESOURCE_CONTENT_DOWNLOAD_URL' },
+  troubleshooting: { name: 'Livestream Troubleshooting Guide', amount: 3500, downloadEnv: 'RESOURCE_TROUBLESHOOTING_DOWNLOAD_URL' },
+} as const;
+
+type PaymentProductKey = keyof typeof PAYMENT_PRODUCTS;
+
+async function paystackRequest(path: string, init?: RequestInit) {
+  const key = String(process.env.PAYSTACK_SECRET_KEY || '').trim();
+  if (!key) throw new Error('PAYSTACK_SECRET_KEY is not configured');
+  const response = await fetch(`https://api.paystack.co${path}`, {
+    ...init,
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', ...(init?.headers || {}) },
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data?.status) throw new Error(data?.message || `Paystack request failed (${response.status})`);
+  return data;
+}
+
+async function handlePayment(req: Req, res: Res, query: URLSearchParams) {
+  const action = query.get('payment');
+  if (!action) return false;
+  const key = String(query.get('resource') || (body(req).resource || '')) as PaymentProductKey;
+  const item = PAYMENT_PRODUCTS[key];
+  if (!item) return send(res, { error: 'Unknown resource' }, 400), true;
+
+  if (action === 'initialize') {
+    if (req.method !== 'POST') return send(res, { error: 'Method not allowed' }, 405), true;
+    const email = String(body(req).email || '').trim().toLowerCase();
+    if (!/^\\S+@\\S+\\.\\S+$/.test(email)) return send(res, { error: 'Enter a valid email address.' }, 400), true;
+    const origin = String(req.headers?.origin || 'https://www.bluehavens.name.ng').replace(/\\/$/, '');
+    const data = await paystackRequest('/transaction/initialize', {
+      method: 'POST',
+      body: JSON.stringify({
+        email,
+        amount: String(item.amount * 100),
+        currency: 'NGN',
+        callback_url: `${origin}/resources/checkout?resource=${encodeURIComponent(key)}`,
+        metadata: { resource: key, product_name: item.name },
+      }),
+    });
+    return send(res, { ok: true, authorization_url: data.data.authorization_url, reference: data.data.reference, product: { key, name: item.name, amount: item.amount } }), true;
+  }
+
+  if (action === 'verify') {
+    if (req.method !== 'GET') return send(res, { error: 'Method not allowed' }, 405), true;
+    const reference = String(query.get('reference') || '').trim();
+    if (!reference) return send(res, { error: 'Missing payment reference.' }, 400), true;
+    const data = await paystackRequest(`/transaction/verify/${encodeURIComponent(reference)}`);
+    const transaction = data.data;
+    const paidKey = String(transaction?.metadata?.resource || key) as PaymentProductKey;
+    const paidProduct = PAYMENT_PRODUCTS[paidKey];
+    if (!paidProduct || transaction.status !== 'success' || Number(transaction.amount) !== paidProduct.amount * 100) {
+      return send(res, { error: 'Payment has not been confirmed for this resource.' }, 402), true;
+    }
+    const downloadUrl = String(process.env[paidProduct.downloadEnv] || '').trim();
+    return send(res, { ok: true, paid: true, reference, product: paidProduct.name, download_url: downloadUrl || null }), true;
+  }
+
+  return send(res, { error: 'Unknown payment action' }, 400), true;
+}
+
+
 const db = () => {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not configured');
   return neon(process.env.DATABASE_URL);
@@ -112,9 +176,10 @@ function shape(story: any) {
 
 export default async function handler(req: Req, res: Res) {
   try {
+    const query = params(req);
+    if (await handlePayment(req, res, query)) return;
     const database = db();
     await ensure(database);
-    const query = params(req);
 
     if (req.method === 'GET') {
       const slug = query.get('slug');
