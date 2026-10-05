@@ -22,7 +22,7 @@ export default function ResourceCheckout() {
 
   useEffect(() => {
     if (!reference) return;
-    fetch(`/api/paystack?action=verify&resource=${encodeURIComponent(key)}&reference=${encodeURIComponent(reference)}`, { cache: 'no-store' })
+    fetch(`/api/stories?payment=verify&resource=${encodeURIComponent(key)}&reference=${encodeURIComponent(reference)}`, { cache: 'no-store' })
       .then(async r => {
         const data = await r.json();
         if (!r.ok || !data.ok) throw new Error(data.error || 'Payment could not be verified.');
@@ -38,7 +38,7 @@ export default function ResourceCheckout() {
     setError('');
     setLoading(true);
     try {
-      const response = await fetch('/api/paystack?action=initialize', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ resource: key, email }) });
+      const response = await fetch('/api/stories?payment=initialize', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ resource: key, email }) });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || 'Unable to start payment.');
       window.location.href = data.authorization_url;
