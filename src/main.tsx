@@ -11,6 +11,7 @@ const path = window.location.pathname;
 const isBlogAdmin = path === '/admin/blog' || path === '/admin/blog/';
 const isAdmin = (path === '/admin' || path.startsWith('/admin/')) && !isBlogAdmin;
 const isWriter = path === '/stories/write' || path === '/stories/account';
+const isResourceCheckout = path === '/resources/checkout' || path === '/resources/checkout/';
 const isStories = (path === '/stories' || path.startsWith('/stories/')) && !isWriter;
 
 if (isBlogAdmin) {
@@ -20,6 +21,8 @@ if (isBlogAdmin) {
     installAdminImageOptimization();
     return import('./app/Admin.tsx');
   }).then(({ default: Admin }) => root.render(<Admin />));
+} else if (isResourceCheckout) {
+  import('./app/ResourceCheckout.tsx').then(({ default: ResourceCheckout }) => root.render(<ResourceCheckout />));
 } else if (isWriter) {
   import('./app/BlogPortal.tsx').then(({ default: BlogPortal }) => root.render(<BlogPortal />));
 } else if (isStories) {
