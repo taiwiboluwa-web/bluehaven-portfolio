@@ -109,7 +109,7 @@ export default function App() {
 
         {/* Twitter */}
         <meta property="twitter:card" content="summary_large_image" />
-        <meta property="twitter:url" content="https://bluehavenstudios.com/" />
+        <meta property="twitter:url" content="https://www.bluehavens.name.ng/" />
         <meta property="twitter:title" content="Bluehaven Studios - Creative Digital Agency" />
         <meta property="twitter:description" content="Bluehaven Studios is a premier creative agency specializing in branding, social media management, video production, and digital marketing. We transform brands into experiences." />
         <meta property="twitter:image" content={socialPreviewImage} />
