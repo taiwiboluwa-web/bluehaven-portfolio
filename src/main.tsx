@@ -8,10 +8,10 @@ installPortfolioGalleryRuntime();
 
 const root = createRoot(document.getElementById('root')!);
 const path = window.location.pathname;
-const isAdmin = path === '/admin' || path.startsWith('/admin/');
-const isStories = path === '/stories' || path.startsWith('/stories/');
+const isBlogAdmin = path === '/admin/blog' || path === '/admin/blog/';
+const isAdmin = (path === '/admin' || path.startsWith('/admin/')) && !isBlogAdmin;
 const isWriter = path === '/stories/write' || path === '/stories/account';
-const isBlogAdmin = path === '/admin/blog';
+const isStories = (path === '/stories' || path.startsWith('/stories/')) && !isWriter;
 
 if (isBlogAdmin) {
   import('./app/BlogAdmin.tsx').then(({ default: BlogAdmin }) => root.render(<BlogAdmin />));
