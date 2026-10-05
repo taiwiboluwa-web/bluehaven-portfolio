@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, X, Grid2X2, List } from 'lucide-react';
 import { selectProjectById } from '../lib/portfolioSelection';
+import SupportStudio from './SupportStudio';
 import './SiteEnhancements.css';
 
 type Layout = 'portrait' | 'landscape' | 'square';
