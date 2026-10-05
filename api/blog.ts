@@ -2,7 +2,7 @@ import { neon } from '@neondatabase/serverless';
 import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { isAuthenticated as isAdmin } from './_auth.js';
-const scrypt=promisify(scryptCallback),COOKIE='bluehaven_writer_session';
+const scrypt:any=promisify(scryptCallback),COOKIE='bluehaven_writer_session';
 const db=()=>{if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL is not configured');return neon(process.env.DATABASE_URL)};
 const body=(r:any)=>typeof r.body==='string'?JSON.parse(r.body||'{}'):(r.body||{}),send=(r:any,d:any,s=200,h:any={})=>{r.status(s).setHeader('content-type','application/json').setHeader('cache-control','no-store');Object.entries(h).forEach(([k,v])=>r.setHeader(k,String(v)));return r.json(d)};
 const cookie=(r:any)=>String(r.headers?.cookie||'').split(';').map((x:string)=>x.trim()).find((x:string)=>x.startsWith(COOKIE+'='))?.slice(COOKIE.length+1)||'',hash=(v:string)=>createHash('sha256').update(v).digest('hex');
