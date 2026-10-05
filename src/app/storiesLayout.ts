@@ -8,6 +8,6 @@ export const storiesClasses = {
   card: 'overflow-hidden rounded-3xl border border-white/10 bg-white/[.035]',
 };
 
-export function getStoryGridClass(index: number) {
-  return index === 0 ? 'md:col-span-2 lg:col-span-2' : '';
+export function getStoryGridClass(_index: number) {
+  return '';
 }
