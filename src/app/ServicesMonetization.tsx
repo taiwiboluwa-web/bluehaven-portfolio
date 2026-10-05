@@ -1,6 +1,7 @@
 import { ArrowRight, BookOpen, CalendarDays, Check, Download, ExternalLink, GraduationCap, LayoutTemplate, Megaphone, MonitorPlay, Users, Video, Wrench } from 'lucide-react';
 
 const resourceUrl=(key:string)=>`/resources/checkout?resource=${encodeURIComponent(key)}`;
+const whatsappUrl="https://api.whatsapp.com/send/?phone=2348068483718&text=I+would+love+to+make+enquiries+about+your+service&type=phone_number&app_absent=0";
 
 const resources=[
   {title:'Church Livestream Starter Pack',description:'A practical setup checklist for cameras, audio, OBS/Streamlabs, scenes and going live without guesswork.',price:'₦2,500',tag:'Livestreaming',icon:Video,key:'livestream'},
@@ -10,17 +11,17 @@ const resources=[
 
 const offers=[
   {title:'Digital Products',price:'₦2k–₦15k',description:'Streamlabs/OBS templates, overlays, LUTs, design packs and production checklists.',icon:Download,cta:'Browse resources',href:'#bluehaven-resources-heading'},
-  {title:'Mini Courses',price:'₦5k–₦25k',description:'Focused training such as Start Livestreaming in 60 Minutes and practical creator classes.',icon:GraduationCap,cta:'Ask about a course',href:'/inquire?intent=course'},
+  {title:'Mini Courses',price:'₦5k–₦25k',description:'Focused training such as Start Livestreaming in 60 Minutes and practical creator classes.',icon:GraduationCap,cta:'Ask about a course',href:whatsappUrl},
   {title:'Paid Resources',price:'₦1k–₦10k',description:'Handbooks, setup guides, church media playbooks and creator planning systems.',icon:BookOpen,cta:'View resources',href:'#bluehaven-resources-heading'},
-  {title:'Website Services',price:'₦50k+',description:'Portfolio sites, business websites and focused digital builds that are made to work.',icon:MonitorPlay,cta:'Start a website project',href:'/inquire?intent=website'},
-  {title:'Creative Consultations',price:'₦10k–₦30k',description:'30–60 minute troubleshooting, strategy and creative direction sessions.',icon:Wrench,cta:'Book a consultation',href:'/inquire?intent=consultation'},
-  {title:'Paid Workshops',price:'₦3k–₦10k/person',description:'Monthly livestream, design, content and digital-media sessions for creators and teams.',icon:CalendarDays,cta:'Join a workshop',href:'/inquire?intent=workshop'},
+  {title:'Website Services',price:'₦50k+',description:'Portfolio sites, business websites and focused digital builds that are made to work.',icon:MonitorPlay,cta:'Start a website project',href:whatsappUrl},
+  {title:'Creative Consultations',price:'₦10k–₦30k',description:'30–60 minute troubleshooting, strategy and creative direction sessions.',icon:Wrench,cta:'Book a consultation',href:whatsappUrl},
+  {title:'Paid Workshops',price:'₦3k–₦10k/person',description:'Monthly livestream, design, content and digital-media sessions for creators and teams.',icon:CalendarDays,cta:'Join a workshop',href:whatsappUrl},
   {title:'Templates',price:'₦1k–₦10k',description:'Canva social packs, presentations, event graphics and reusable production assets.',icon:LayoutTemplate,cta:'Get a template',href:'#bluehaven-resources-heading'},
-  {title:'Affiliate Picks',price:'Commission',description:'Recommended software and equipment BlueHaven genuinely uses in real workflows.',icon:ExternalLink,cta:'See recommended tools',href:'/inquire?intent=affiliate'},
-  {title:'Sponsored Stories',price:'₦10k+',description:'A clearly labelled place for relevant creative, tech and business brands to reach BlueHaven readers.',icon:Megaphone,cta:'Ask about sponsorship',href:'/inquire?intent=sponsorship'},
-  {title:'Job & Service Leads',price:'Project-based',description:'Turn visitors who need help into qualified enquiries for BlueHaven services.',icon:ArrowRight,cta:'Hire BlueHaven',href:'/inquire?intent=hire'},
-  {title:'Membership',price:'₦2k–₦10k/month',description:'A private creator space with resources, office hours, community and practical support.',icon:Users,cta:'Join the waitlist',href:'/inquire?intent=membership'},
-  {title:'Subscriptions',price:'Monthly',description:'Recurring access to a growing library of resources, templates and training.',icon:Check,cta:'Join the waitlist',href:'/inquire?intent=subscription'},
+  {title:'Affiliate Picks',price:'Commission',description:'Recommended software and equipment BlueHaven genuinely uses in real workflows.',icon:ExternalLink,cta:'See recommended tools',href:whatsappUrl},
+  {title:'Sponsored Stories',price:'₦10k+',description:'A clearly labelled place for relevant creative, tech and business brands to reach BlueHaven readers.',icon:Megaphone,cta:'Ask about sponsorship',href:whatsappUrl},
+  {title:'Job & Service Leads',price:'Project-based',description:'Turn visitors who need help into qualified enquiries for BlueHaven services.',icon:ArrowRight,cta:'Hire BlueHaven',href:whatsappUrl},
+  {title:'Membership',price:'₦2k–₦10k/month',description:'A private creator space with resources, office hours, community and practical support.',icon:Users,cta:'Join the waitlist',href:whatsappUrl},
+  {title:'Subscriptions',price:'Monthly',description:'Recurring access to a growing library of resources, templates and training.',icon:Check,cta:'Join the waitlist',href:whatsappUrl},
 ];
 
 function ResourcesSection(){
@@ -49,7 +50,7 @@ function OffersSection(){
 }
 
 function HireFunnel(){
-  return <section className="relative mx-auto max-w-7xl px-5 pb-20 md:px-10 md:pb-24" aria-labelledby="hire-bluehaven-heading"><div className="relative overflow-hidden border-y border-white/10 py-10 md:flex md:items-center md:justify-between md:gap-12 md:py-14"><div className="max-w-2xl"><p className="text-[10px] font-bold uppercase tracking-[.28em] text-[#ffde59]">Hire BlueHaven</p><h2 id="hire-bluehaven-heading" className="mt-3 text-3xl font-black tracking-tight text-white md:text-5xl">Need the result, not the tutorial?</h2><p className="mt-4 text-sm leading-7 text-white/50 md:text-base">Tell us what you are trying to build, fix or launch. We can handle the creative direction, livestreaming, content, branding or digital work for you.</p></div><div className="mt-7 flex shrink-0 flex-wrap gap-3 md:mt-0"><a href="/inquire?intent=hire" className="inline-flex items-center gap-2 rounded-full bg-[#ffde59] px-5 py-3 text-[10px] font-black uppercase tracking-[.16em] text-black hover:brightness-105">Start a project <ArrowRight size={14}/></a><a href="/work" className="inline-flex items-center gap-2 rounded-full border border-white/15 px-5 py-3 text-[10px] font-bold uppercase tracking-[.16em] text-white/65 hover:border-white/30 hover:text-white">See the work</a></div></div></section>;
+  return <section className="relative mx-auto max-w-7xl px-5 pb-20 md:px-10 md:pb-24" aria-labelledby="hire-bluehaven-heading"><div className="relative overflow-hidden border-y border-white/10 py-10 md:flex md:items-center md:justify-between md:gap-12 md:py-14"><div className="max-w-2xl"><p className="text-[10px] font-bold uppercase tracking-[.28em] text-[#ffde59]">Hire BlueHaven</p><h2 id="hire-bluehaven-heading" className="mt-3 text-3xl font-black tracking-tight text-white md:text-5xl">Need the result, not the tutorial?</h2><p className="mt-4 text-sm leading-7 text-white/50 md:text-base">Tell us what you are trying to build, fix or launch. We can handle the creative direction, livestreaming, content, branding or digital work for you.</p></div><div className="mt-7 flex shrink-0 flex-wrap gap-3 md:mt-0"><a href={whatsappUrl} className="inline-flex items-center gap-2 rounded-full bg-[#ffde59] px-5 py-3 text-[10px] font-black uppercase tracking-[.16em] text-black hover:brightness-105">Start a project <ArrowRight size={14}/></a><a href="/work" className="inline-flex items-center gap-2 rounded-full border border-white/15 px-5 py-3 text-[10px] font-bold uppercase tracking-[.16em] text-white/65 hover:border-white/30 hover:text-white">See the work</a></div></div></section>;
 }
 
 export default function ServicesMonetization(){return <><ResourcesSection/><OffersSection/><HireFunnel/></>;}
