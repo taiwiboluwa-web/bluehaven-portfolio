@@ -3,7 +3,7 @@ import { ArrowRight, BookOpen, Download, Video, Wrench } from 'lucide-react';
 const resourceUrl=(key:string)=>{
   const envKey=`VITE_RESOURCE_${key.toUpperCase()}_URL`;
   const configured=String((import.meta.env as Record<string,string|undefined>)[envKey]||'').trim();
-  return configured||`/inquire?intent=resource&resource=${encodeURIComponent(key)}`;
+  return `/resources/checkout?resource=${encodeURIComponent(key)}`;
 };
 const resources=[
   {title:'Church Livestream Starter Pack',description:'A practical setup checklist for cameras, audio, OBS/Streamlabs, scenes and going live without guesswork.',price:'From ₦2,500',tag:'Livestreaming',icon:Video,key:'livestream'},
