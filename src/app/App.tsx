@@ -73,36 +73,7 @@ export default function App() {
     // Add title
     document.title = "Bluehaven Studios";
     
-    // Force-hide accessibility links injected by hosting/framework
-    const hideAccessibilityLinks = () => {
-      const links = document.querySelectorAll('a');
-      links.forEach(link => {
-        if (link.textContent?.toLowerCase().includes('skip to main content')) {
-          link.style.position = 'absolute';
-          link.style.width = '1px';
-          link.style.height = '1px';
-          link.style.padding = '0';
-          link.style.margin = '-1px';
-          link.style.overflow = 'hidden';
-          link.style.clip = 'rect(0, 0, 0, 0)';
-          link.style.whiteSpace = 'nowrap';
-          link.style.border = '0';
-        }
-      });
-    };
-
-    hideAccessibilityLinks();
-    
-    // In case it's injected asynchronously
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach(mutation => {
-        if (mutation.addedNodes.length) hideAccessibilityLinks();
-      });
-    });
-    
-    observer.observe(document.body, { childList: true, subtree: true });
-    
-    return () => observer.disconnect();
+    // Keep the page accessible: do not remove or hide skip-navigation controls.
   }, []);
 
   const scrollToSection = (id: string) => {
@@ -130,10 +101,11 @@ export default function App() {
 
         {/* Open Graph / Facebook */}
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://bluehavenstudios.com/" />
+        <meta property="og:url" content="https://www.bluehavens.name.ng/" />
         <meta property="og:title" content="Bluehaven Studios - Creative Digital Agency" />
         <meta property="og:description" content="Bluehaven Studios is a premier creative agency specializing in branding, social media management, video production, and digital marketing. We transform brands into experiences." />
         <meta property="og:image" content={socialPreviewImage} />
+        <link rel="canonical" href="https://www.bluehavens.name.ng/" />
 
         {/* Twitter */}
         <meta property="twitter:card" content="summary_large_image" />
