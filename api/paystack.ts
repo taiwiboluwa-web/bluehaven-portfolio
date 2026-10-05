@@ -1,4 +1,15 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+type VercelRequest = {
+  method?: string;
+  query: Record<string, unknown>;
+  body?: Record<string, unknown>;
+  headers: Record<string, string | undefined>;
+};
+
+type VercelResponse = {
+  status(code: number): VercelResponse;
+  setHeader(name: string, value: string): VercelResponse;
+  json(data: unknown): VercelResponse;
+};
 
 const PRODUCTS = {
   livestream: { name: 'Church Livestream Starter Pack', amount: 2500, description: 'A practical setup checklist for cameras, audio, OBS/Streamlabs, scenes and going live without guesswork.', downloadEnv: 'RESOURCE_LIVESTREAM_DOWNLOAD_URL' },
