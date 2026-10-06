@@ -69,7 +69,7 @@ async function putObject(key, bytes, contentType) {
 
 async function getObject(key) {
   const emptyHash = createHash('sha256').update(Buffer.alloc(0)).digest('hex');
-  return fetch(signedRequest('GET', key, emptyHash).url, { method: 'GET', headers: signedRequest('GET', key, emptyHash).headers });
+  const signed = signedRequest('GET', key, emptyHash); return fetch(signed.url, { method: 'GET', headers: signed.headers });
 }
 
 async function deleteObject(key) {
