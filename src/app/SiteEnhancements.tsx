@@ -384,7 +384,7 @@ function RecentWork() {
     setHost(node);
 
     const load = () =>
-      fetch('/api/portfolio?mode=public', { cache: 'no-store' })
+      fetch('/api/portfolio?mode=public', { cache: 'force-cache' })
         .then((response) =>
           response.ok ? response.json() : Promise.reject(new Error('Portfolio request failed')),
         )
