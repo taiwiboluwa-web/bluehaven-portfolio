@@ -9,7 +9,8 @@ const resources = [
 
 export default function ResourcesShelf() {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
-  const initial = (params.get('select') || '').split(',').filter((key) => resources.some((item) => item.key === key));
+  const initialRaw = params.get('select') || params.get('resource') || '';
+  const initial = initialRaw.split(',').filter((key) => resources.some((item) => item.key === key));
   const [selected, setSelected] = useState<string[]>(Array.from(new Set(initial)));
 
   const toggle = (key: string) => {
