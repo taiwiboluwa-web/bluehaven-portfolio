@@ -1,6 +1,6 @@
 import { ArrowRight, BookOpen, CalendarDays, Check, Download, ExternalLink, GraduationCap, LayoutTemplate, Megaphone, MonitorPlay, Users, Video, Wrench } from 'lucide-react';
 
-const resourceUrl=(key:string)=>`/resources/checkout?resource=${encodeURIComponent(key)}`;
+const resourceUrl=(key:string)=>`/resources?select=${encodeURIComponent(key)}`;
 const whatsappUrl="https://api.whatsapp.com/send/?phone=2348068483718&text=I+would+love+to+make+enquiries+about+your+service&type=phone_number&app_absent=0";
 
 const resources=[
