@@ -13,6 +13,7 @@ const isAdmin = (path === '/admin' || path.startsWith('/admin/')) && !isBlogAdmi
 const isWriter = path === '/stories/write' || path === '/stories/account';
 const isResourceShelf = path === '/resources' || path === '/resources/';
 const isResourceCheckout = path === '/resources/checkout' || path === '/resources/checkout/';
+const hasLegacyResourceSelection = isResourceCheckout && new URLSearchParams(window.location.search).has('resource') && !new URLSearchParams(window.location.search).has('resources');
 const isStories = (path === '/stories' || path.startsWith('/stories/')) && !isWriter;
 
 if (isBlogAdmin) {
@@ -22,6 +23,8 @@ if (isBlogAdmin) {
     installAdminImageOptimization();
     return import('./app/Admin.tsx');
   }).then(({ default: Admin }) => root.render(<Admin />));
+} else if (isResourceCheckout && hasLegacyResourceSelection) {
+  import('./app/ResourcesShelf.tsx').then(({ default: ResourcesShelf }) => root.render(<ResourcesShelf />));
 } else if (isResourceCheckout) {
   import('./app/ResourceCheckout.tsx').then(({ default: ResourceCheckout }) => root.render(<ResourceCheckout />));
 } else if (isResourceShelf) {
