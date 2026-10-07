@@ -75,7 +75,7 @@ export default function ResourceCheckout() {
 
         <div className="mt-10 grid overflow-hidden border border-white/10 md:grid-cols-[1.1fr_.9fr]">
           <section className="p-7 md:p-12">
-            <p className="text-[10px] font-bold uppercase tracking-[.28em] text-[#ffde59]">Your selection</p>
+            <p className="text-[10px] font-bold uppercase tracking-[.28em] text-white/55">Your selection</p>
             <h1 className="mt-4 text-4xl font-black tracking-tight md:text-6xl">Your resources. One checkout.</h1>
             <p className="mt-5 max-w-xl text-sm leading-7 text-white/45">
               Review what you picked, enter your details, and you’ll be ready for the payment step.
@@ -88,7 +88,7 @@ export default function ResourceCheckout() {
                     <h2 className="text-base font-bold">{item.name}</h2>
                     <p className="mt-1 max-w-lg text-xs leading-5 text-white/40">{item.description}</p>
                   </div>
-                  <span className="shrink-0 text-sm font-black text-[#ffde59]">
+                  <span className="shrink-0 text-sm font-black text-white">
                     ₦{item.amount.toLocaleString('en-NG')}
                   </span>
                 </div>
@@ -107,7 +107,7 @@ export default function ResourceCheckout() {
                 <div className="flex h-12 w-12 items-center justify-center bg-[#ffde59] text-black">
                   <Check size={22} />
                 </div>
-                <p className="mt-7 text-[10px] font-bold uppercase tracking-[.2em] text-[#ffde59]">
+                <p className="mt-7 text-[10px] font-bold uppercase tracking-[.2em] text-white/55">
                   Checkout details received
                 </p>
                 <h2 className="mt-3 text-3xl font-black">You’re ready to pay.</h2>
@@ -117,7 +117,7 @@ export default function ResourceCheckout() {
                 <div className="mt-7 border border-white/10 bg-black/30 p-5">
                   <p className="text-xs font-bold text-white">{name}</p>
                   <p className="mt-1 text-xs text-white/40">{email}</p>
-                  <p className="mt-4 text-sm font-black text-[#ffde59]">
+                  <p className="mt-4 text-sm font-black text-white">
                     ₦{total.toLocaleString('en-NG')}
                   </p>
                 </div>
