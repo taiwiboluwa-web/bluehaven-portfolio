@@ -1431,19 +1431,20 @@ export default function App() {
               </p>
               <motion.button
                 onClick={() => window.open("https://wa.me/2348068483718?text=I%20would%20love%20to%20make%20enquiries%20about%20your%20service", "_blank")}
-                className="text-black px-6 py-3 text-sm font-bold uppercase tracking-wide inline-flex items-center gap-2 relative overflow-hidden rounded-lg"
+                className="text-white px-6 py-3 text-sm font-bold uppercase tracking-wide inline-flex items-center gap-2 relative overflow-hidden rounded-lg"
                 style={{
-                  background: "linear-gradient(135deg, #e0e0e0 0%, #ffffff 100%)",
-                  boxShadow: "0 0 15px rgba(255,255,255,0.2)",
+                  background: "#25D366",
+                  boxShadow: "0 0 18px rgba(37,211,102,0.28)",
                 }}
                 whileHover={{
                   scale: 1.05,
-                  boxShadow: "0 0 25px rgba(255,255,255,0.4)",
+                  backgroundColor: "#20BD5B",
+                  boxShadow: "0 0 28px rgba(37,211,102,0.42)",
                 }}
                 whileTap={{ scale: 0.95 }}
               >
                 <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-white to-gray-200"
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
                   initial={{ x: "-100%" }}
                   whileHover={{ x: "100%" }}
                   transition={{ duration: 0.6 }}
@@ -1614,19 +1615,18 @@ export default function App() {
                   title="Instagram"
                   className="group flex items-center justify-center w-12 h-12 rounded-xl border transition-all relative overflow-hidden"
                   style={{
-                    background: "rgba(255, 255, 255, 0.05)",
-                    backdropFilter: "blur(10px)",
-                    borderColor: "rgba(255, 255, 255, 0.1)",
-                    boxShadow: "0 4px 30px rgba(0,0,0,0.1), inset 0 0 20px rgba(255,255,255,0.05)",
+                    background: "linear-gradient(135deg, #833AB4 0%, #E1306C 48%, #F77737 72%, #FCAF45 100%)",
+                    borderColor: "rgba(255,255,255,0.18)",
+                    boxShadow: "0 6px 24px rgba(225,48,108,0.24)",
                   }}
                   whileHover={{
                     scale: 1.1,
-                    borderColor: "rgba(255, 255, 255, 0.3)",
-                    background: "rgba(255, 255, 255, 0.1)",
+                    borderColor: "rgba(255,255,255,0.45)",
+                    boxShadow: "0 8px 30px rgba(225,48,108,0.38)",
                   }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <Instagram className="w-5 h-5 text-gray-300 group-hover:text-white transition-colors relative z-10" />
+                  <Instagram className="w-5 h-5 text-white transition-colors relative z-10" />
                 </motion.a>
                 <motion.a
                   href="https://www.tiktok.com/@bluehaven.studio"
@@ -1635,19 +1635,22 @@ export default function App() {
                   title="TikTok"
                   className="group flex items-center justify-center w-12 h-12 rounded-xl border transition-all relative overflow-hidden"
                   style={{
-                    background: "rgba(255, 255, 255, 0.05)",
-                    backdropFilter: "blur(10px)",
-                    borderColor: "rgba(255, 255, 255, 0.1)",
-                    boxShadow: "0 4px 30px rgba(0,0,0,0.1), inset 0 0 20px rgba(255,255,255,0.05)",
+                    background: "#000000",
+                    borderColor: "#25F4EE",
+                    boxShadow: "4px 4px 0 #FE2C55, 0 6px 24px rgba(0,0,0,0.3)",
                   }}
                   whileHover={{
                     scale: 1.1,
-                    borderColor: "rgba(255, 255, 255, 0.3)",
-                    background: "rgba(255, 255, 255, 0.1)",
+                    borderColor: "#FE2C55",
+                    boxShadow: "5px 5px 0 #25F4EE, 0 8px 30px rgba(37,244,238,0.28)",
                   }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <Music className="w-5 h-5 text-gray-300 group-hover:text-white transition-colors relative z-10" />
+                  <svg className="w-5 h-5 relative z-10" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="#25F4EE" d="M19.589 6.686a4.793 4.793 0 0 1-3.116-3.12A4.806 4.806 0 0 1 16.315 2h-3.188v13.228a2.896 2.896 0 1 1-2.897-2.896c.302 0 .592.047.862.132V9.223a6.09 6.09 0 1 0 5.228 6.005V8.517a7.9 7.9 0 0 0 4.62 1.489V6.823a4.82 4.82 0 0 1-1.351-.137Z"/>
+                    <path fill="#FE2C55" d="M15.98 3.566a4.793 4.793 0 0 0 3.116 3.12c.428.09.88.137 1.351.137v3.183a7.9 7.9 0 0 1-4.62-1.489v6.711a6.09 6.09 0 0 1-5.228-6.005c0-.327.026-.648.075-.962v3.473a2.896 2.896 0 1 0 2.897 2.896V2h2.409c-.009.538-.009 1.063 0 1.566Z"/>
+                    <path fill="#FFFFFF" d="M16.315 2a4.806 4.806 0 0 0 .158 1.566h-2.409v12.662a2.896 2.896 0 1 1-2.897-2.896c.302 0 .592.047.862.132V10.91a6.09 6.09 0 1 0 5.228 6.005V8.517a7.9 7.9 0 0 0 4.62 1.489V6.823a4.82 4.82 0 0 1-1.351-.137 4.793 4.793 0 0 1-3.116-3.12A4.806 4.806 0 0 1 16.315 2Z"/>
+                  </svg>
                 </motion.a>
                 <motion.a
                   href="https://www.threads.com/@blue.havenstudios"
