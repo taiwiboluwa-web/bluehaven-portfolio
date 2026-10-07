@@ -18,22 +18,89 @@
     }
   ],
   "rewrites": [
-    { "source": "/admin", "destination": "/admin.html" },
-    { "source": "/admin/", "destination": "/admin.html" },
-    { "source": "/admin/blog", "destination": "/admin.html" },
-    { "source": "/stories", "destination": "/index.html" },
-    { "source": "/stories/:path*", "destination": "/index.html" },
-    { "source": "/services", "destination": "/index.html" },
-    { "source": "/services/", "destination": "/index.html" },
-    { "source": "/portfolio", "destination": "/index.html" },
-    { "source": "/portfolio/", "destination": "/index.html" },
-    { "source": "/work", "destination": "/index.html" },
-    { "source": "/work/", "destination": "/index.html" },
-    { "source": "/process", "destination": "/index.html" },
-    { "source": "/process/", "destination": "/index.html" },
-    { "source": "/inquire", "destination": "/index.html" },
-    { "source": "/inquire/", "destination": "/index.html" },
-    { "source": "/about", "destination": "/index.html" },
-    { "source": "/about/", "destination": "/index.html" }
+    {
+      "source": "/resources",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/resources/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/resources/checkout",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/resources/checkout/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/admin/",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/admin/blog",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/stories",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/stories/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/services",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/services/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/portfolio",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/portfolio/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/work",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/work/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/process",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/process/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/inquire",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/inquire/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/about",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/about/",
+      "destination": "/index.html"
+    }
   ]
 }
