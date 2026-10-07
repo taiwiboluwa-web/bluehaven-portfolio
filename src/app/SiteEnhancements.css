@@ -3,3 +3,20 @@
 @media(max-width:1100px){.work-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.work-list-item{grid-template-columns:180px minmax(0,1fr)}}
 @media(max-width:640px){.work-folder-tab-motion{top:-14px;height:16px}.bluehaven-managed-work{overflow-x:clip}.bluehaven-managed-work h2{overflow-wrap:anywhere}.work-grid{padding-top:7px}.work-grid-card::before{top:-14px;height:16px}.work-folder-copy{padding:14px 15px 17px}.work-toolbar{align-items:stretch;flex-direction:column}.work-view-toggle{align-self:flex-start}.work-grid{grid-template-columns:1fr;gap:14px}.work-list-item{grid-template-columns:112px minmax(0,1fr);gap:14px;padding:14px 0}.work-list-image{height:112px;border-radius:14px}.work-list-copy h3{font-size:18px}.work-list-copy p{display:none}.work-list-action{font-size:9px;margin-top:10px}.work-list-meta{font-size:8px;letter-spacing:.12em}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.bluehaven-managed-work *{scroll-behavior:auto!important}}
+
+/* Stronger physical folder-open interaction */
+.work-folder{perspective:1100px;transform-origin:50% 100%;}
+.work-folder-tab-motion{z-index:4;transform-origin:10% 100%;}
+.work-folder-opening{animation:folder-open-pop .72s cubic-bezier(.16,1,.3,1) both!important;}
+.work-folder-opening .work-folder-tab-motion{animation:folder-tab-flip .72s cubic-bezier(.16,1,.3,1) both;}
+.work-folder-opening .work-grid-image{animation:folder-image-push .72s cubic-bezier(.16,1,.3,1) both;}
+.work-folder-opening .work-folder-copy{animation:folder-copy-reveal .72s cubic-bezier(.16,1,.3,1) both;}
+.work-folder-opening .work-folder-shine{animation:folder-light-sweep .72s cubic-bezier(.16,1,.3,1) both!important;}
+.work-folder-opening::after{opacity:.75;animation:folder-glow-pulse .72s ease-out both;}
+@keyframes folder-open-pop{0%{transform:perspective(1100px) rotateX(0) translateY(0) scale(1)}28%{transform:perspective(1100px) rotateX(-7deg) translateY(-5px) scale(1.015)}62%{transform:perspective(1100px) rotateX(2deg) translateY(-2px) scale(1.035)}100%{transform:perspective(1100px) rotateX(0) translateY(0) scale(1.02)}}
+@keyframes folder-tab-flip{0%{transform:translateY(0) rotateX(0) scaleX(1);filter:brightness(1)}35%{transform:translateY(-8px) rotateX(-72deg) scaleX(1.08);filter:brightness(1.3)}70%{transform:translateY(-3px) rotateX(-35deg) scaleX(1.04);filter:brightness(1.15)}100%{transform:translateY(0) rotateX(0) scaleX(1);filter:brightness(1)}}
+@keyframes folder-image-push{0%{transform:translateZ(0) scale(1)}38%{transform:translateZ(28px) scale(1.035)}100%{transform:translateZ(0) scale(1.015)}}
+@keyframes folder-copy-reveal{0%{opacity:1;transform:translateY(0)}35%{opacity:.35;transform:translateY(12px)}70%{opacity:.9;transform:translateY(3px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes folder-light-sweep{0%{transform:translateX(-130%);opacity:0}20%{opacity:1}65%{opacity:1}100%{transform:translateX(130%);opacity:0}}
+@keyframes folder-glow-pulse{0%{transform:translateY(10px) scale(.96);opacity:.28}45%{transform:translateY(0) scale(1.12);opacity:.8}100%{transform:translateY(5px) scale(1);opacity:.28}}
+@media(prefers-reduced-motion:reduce){.work-folder-opening,.work-folder-opening .work-folder-tab-motion,.work-folder-opening .work-grid-image,.work-folder-opening .work-folder-copy,.work-folder-opening .work-folder-shine{animation:none!important}}
