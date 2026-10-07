@@ -35,7 +35,7 @@ export default function ResourcesShelf() {
         </a>
 
         <header className="mt-12 max-w-3xl">
-          <p className="text-[10px] font-bold uppercase tracking-[.28em] text-[#ffde59]">The resource shelf</p>
+          <p className="text-[10px] font-bold uppercase tracking-[.28em] text-white/55">The resource shelf</p>
           <h1 className="mt-3 text-4xl font-black tracking-tight md:text-7xl">Pick what you need.</h1>
           <p className="mt-5 text-sm leading-7 text-white/50 md:text-base">
             Browse the practical resources, add whatever you want to your shelf, then check out everything together in one payment.
@@ -49,12 +49,12 @@ export default function ResourcesShelf() {
               <article key={item.key} className="bg-[#0f0f0f] p-6 transition-colors hover:bg-[#141414] md:p-8">
                 <div className="flex items-start justify-between gap-4">
                   <span className="text-[9px] font-bold uppercase tracking-[.18em] text-white/30">{item.tag}</span>
-                  {isSelected && <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[.14em] text-[#ffde59]"><Check size={13} /> On shelf</span>}
+                  {isSelected && <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[.14em] text-white/70"><Check size={13} /> On shelf</span>}
                 </div>
                 <h2 className="mt-10 text-2xl font-bold leading-tight">{item.title}</h2>
                 <p className="mt-3 min-h-[96px] text-sm leading-6 text-white/45">{item.description}</p>
                 <div className="mt-8 flex items-end justify-between gap-4 border-t border-white/10 pt-5">
-                  <span className="text-lg font-black text-[#ffde59]">₦{item.price.toLocaleString('en-NG')}</span>
+                  <span className="text-lg font-black text-white">₦{item.price.toLocaleString('en-NG')}</span>
                   <button
                     type="button"
                     onClick={() => toggle(item.key)}
@@ -74,7 +74,7 @@ export default function ResourcesShelf() {
               <p className="text-[9px] font-bold uppercase tracking-[.18em] text-white/30">Your shelf</p>
               <p className="mt-1 text-sm font-bold text-white">
                 {selected.length} {selected.length === 1 ? 'resource' : 'resources'} selected
-                {selected.length > 0 && <span className="ml-3 text-[#ffde59]">₦{total.toLocaleString('en-NG')}</span>}
+                {selected.length > 0 && <span className="ml-3 text-white">₦{total.toLocaleString('en-NG')}</span>}
               </p>
             </div>
             <a
