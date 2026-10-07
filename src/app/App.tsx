@@ -1682,19 +1682,21 @@ export default function App() {
                   title="WhatsApp Group"
                   className="group flex items-center justify-center w-12 h-12 rounded-xl border transition-all relative overflow-hidden"
                   style={{
-                    background: "rgba(255, 255, 255, 0.05)",
-                    backdropFilter: "blur(10px)",
-                    borderColor: "rgba(255, 255, 255, 0.1)",
-                    boxShadow: "0 4px 30px rgba(0,0,0,0.1), inset 0 0 20px rgba(255,255,255,0.05)",
+                    background: "#25D366",
+                    borderColor: "#25D366",
+                    boxShadow: "0 6px 24px rgba(37,211,102,0.24)",
                   }}
                   whileHover={{
                     scale: 1.1,
-                    borderColor: "rgba(255, 255, 255, 0.3)",
-                    background: "rgba(255, 255, 255, 0.1)",
+                    borderColor: "#5EE58B",
+                    background: "#20BD5B",
+                    boxShadow: "0 8px 30px rgba(37,211,102,0.38)",
                   }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <Users className="w-5 h-5 text-gray-300 group-hover:text-white transition-colors relative z-10" />
+                  <svg className="w-5 h-5 relative z-10" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="#FFFFFF" d="M20.52 3.48A11.84 11.84 0 0 0 12.04.01C5.5.01.18 5.32.18 11.87c0 2.09.55 4.13 1.6 5.94L.08 23.99l6.32-1.66a11.86 11.86 0 0 0 5.64 1.44h.01c6.54 0 11.85-5.32 11.85-11.86 0-3.17-1.23-6.14-3.38-8.43Zm-8.48 16.3h-.01a9.9 9.9 0 0 1-5.04-1.38l-.36-.21-3.75.99 1-3.65-.23-.38a9.88 9.88 0 1 1 8.39 4.63Zm5.43-7.42c-.3-.15-1.78-.88-2.05-.98-.27-.1-.47-.15-.67.15-.2.3-.77.98-.94 1.18-.17.2-.35.23-.65.08-.3-.15-1.26-.46-2.4-1.47-.89-.79-1.49-1.76-1.66-2.06-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.01-1.04 2.46s1.07 2.85 1.22 3.05c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.5 1.69.64.71.23 1.36.2 1.87.12.57-.09 1.78-.73 2.03-1.43.25-.7.25-1.3.17-1.43-.07-.13-.27-.2-.57-.35Z"/>
+                  </svg>
                 </motion.a>
                 <motion.a
                   href="https://campsite.bio/blue.havenstudios"
