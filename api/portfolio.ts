@@ -13,7 +13,7 @@ const secret = () => process.env.BLUEHAVEN_ADMIN_PASSWORD || process.env.ADMIN_P
 const cookie = (r: Req) => r.headers?.cookie || r.headers?.Cookie || '';
 const auth = (r: Req) => { const raw = cookie(r).match(/(?:^|;\s*)bluehaven_admin=([^;]+)/)?.[1]; if (!raw || !secret()) return false; const parts = raw.split('.'); if (parts.length !== 3) return false; const expected = Buffer.from(createHmac('sha256', secret()).update(`${parts[0]}.${parts[1]}`).digest('base64url')); const actual = Buffer.from(parts[2]); return actual.length === expected.length && timingSafeEqual(actual, expected); };
 const parseBody = (r: Req) => { if (r.body && typeof r.body === 'object') return r.body as Record<string, unknown>; if (typeof r.body === 'string') { try { return JSON.parse(r.body) as Record<string, unknown>; } catch {} } return {}; };
-const send = (res: Res, data: unknown, status = 200) => { res.status(status).setHeader('content-type', 'application/json'); res.setHeader('cache-control', 'no-store, no-cache, must-revalidate, proxy-revalidate'); res.setHeader('pragma', 'no-cache'); res.setHeader('expires', '0'); res.json(data); };
+const send = (res: Res, data: unknown, status = 200, cacheControl = 'no-store, no-cache, must-revalidate, proxy-revalidate') => { res.status(status).setHeader('content-type', 'application/json'); res.setHeader('cache-control', cacheControl); if (cacheControl === 'no-store, no-cache, must-revalidate, proxy-revalidate') { res.setHeader('pragma', 'no-cache'); res.setHeader('expires', '0'); } res.json(data); };
 const params = (r: Req) => new URL(r.url || '/', 'https://bluehaven.local').searchParams;
 const layoutOf = (v: unknown): Layout => { const x = typeof v === 'object' && v !== null ? String((v as any).aspectRatio || (v as any).layout || '') : String(v || ''); return x === 'portrait' || x === 'square' || x === 'landscape' ? x : 'landscape'; };
 const objectUrl = (key: string) => { const u = new URL(NEON_STORAGE_FUNCTION_URL); u.searchParams.set('key', key); return u.toString(); };
@@ -35,7 +35,7 @@ export default async function handler(req: Req, res: Res) {
     if (req.method === 'GET') {
       if (q.get('media_check')) { if (!auth(req)) return send(res, { error: 'Unauthorized' }, 401); const item = await getMedia(q.get('media_check')!); if (!item || (q.get('project') && item.project_id !== q.get('project'))) return send(res, { media: [] }); return send(res, { media: [item] }); }
       if (auth(req)) return send(res, { ...(await readPortfolio()), storage: 'neon-object-storage', neonAvailable: true });
-      return send(res, { projects: await readPublicPortfolio(), storage: 'neon-object-storage', neonAvailable: true });
+      return send(res, { projects: await readPublicPortfolio(), storage: 'neon-object-storage', neonAvailable: true }, 200, 'public, s-maxage=60, stale-while-revalidate=300');
     }
     if (!auth(req)) return send(res, { error: 'Unauthorized' }, 401); if (req.method !== 'POST') return send(res, { error: 'Method not allowed' }, 405); const b = parseBody(req);
     try {
