@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import App from './App';
 import SiteEnhancements from './SiteEnhancements';
+import ScrollWorld from './ScrollWorld';
 
 const targets: Record<string, string> = {
   services: 'services',
@@ -83,5 +84,5 @@ export default function RouteView() {
       observer.disconnect();
     };
   }, []);
-  return <><App /><SiteEnhancements /></>;
+  return <div data-bluehaven-world-root><ScrollWorld /><App /><SiteEnhancements /></div>;
 }
