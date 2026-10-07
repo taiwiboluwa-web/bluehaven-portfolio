@@ -11,6 +11,7 @@ const path = window.location.pathname;
 const isBlogAdmin = path === '/admin/blog' || path === '/admin/blog/';
 const isAdmin = (path === '/admin' || path.startsWith('/admin/')) && !isBlogAdmin;
 const isWriter = path === '/stories/write' || path === '/stories/account';
+const isResourceShelf = path === '/resources' || path === '/resources/';
 const isResourceCheckout = path === '/resources/checkout' || path === '/resources/checkout/';
 const isStories = (path === '/stories' || path.startsWith('/stories/')) && !isWriter;
 
@@ -23,6 +24,8 @@ if (isBlogAdmin) {
   }).then(({ default: Admin }) => root.render(<Admin />));
 } else if (isResourceCheckout) {
   import('./app/ResourceCheckout.tsx').then(({ default: ResourceCheckout }) => root.render(<ResourceCheckout />));
+} else if (isResourceShelf) {
+  import('./app/ResourcesShelf.tsx').then(({ default: ResourcesShelf }) => root.render(<ResourcesShelf />));
 } else if (isWriter) {
   import('./app/BlogPortal.tsx').then(({ default: BlogPortal }) => root.render(<BlogPortal />));
 } else if (isStories) {
