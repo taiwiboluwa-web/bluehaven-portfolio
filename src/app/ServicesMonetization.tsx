@@ -10,41 +10,41 @@ const resources=[
 ];
 
 const offers=[
-  {title:'Digital Products',price:'₦2k–₦15k',description:'Streamlabs/OBS templates, overlays, LUTs, design packs and production checklists.',icon:Download,cta:'Browse resources',href:'#bluehaven-resources-heading',folder:'#5b8cff'},
-  {title:'Mini Courses',price:'₦5k–₦25k',description:'Focused training such as Start Livestreaming in 60 Minutes and practical creator classes.',icon:GraduationCap,cta:'Ask about a course',href:whatsappUrl,folder:'#e78b4d'},
-  {title:'Paid Resources',price:'₦1k–₦10k',description:'Handbooks, setup guides, church media playbooks and creator planning systems.',icon:BookOpen,cta:'View resources',href:'#bluehaven-resources-heading',folder:'#9b72cf'},
-  {title:'Website Services',price:'₦50k+',description:'Portfolio sites, business websites and focused digital builds that are made to work.',icon:MonitorPlay,cta:'Start a website project',href:whatsappUrl,folder:'#42a889'},
-  {title:'Creative Consultations',price:'₦10k–₦30k',description:'30–60 minute troubleshooting, strategy and creative direction sessions.',icon:Wrench,cta:'Book a consultation',href:whatsappUrl,folder:'#d9688a'},
-  {title:'Paid Workshops',price:'₦3k–₦10k/person',description:'Monthly livestream, design, content and digital-media sessions for creators and teams.',icon:CalendarDays,cta:'Join a workshop',href:whatsappUrl,folder:'#c6a343'},
-  {title:'Templates',price:'₦1k–₦10k',description:'Canva social packs, presentations, event graphics and reusable production assets.',icon:LayoutTemplate,cta:'Get a template',href:'#bluehaven-resources-heading',folder:'#6f9d5d'},
-  {title:'Affiliate Picks',price:'Commission',description:'Recommended software and equipment BlueHaven genuinely uses in real workflows.',icon:ExternalLink,cta:'See recommended tools',href:whatsappUrl,folder:'#7b82c9'},
-  {title:'Sponsored Stories',price:'₦10k+',description:'A clearly labelled place for relevant creative, tech and business brands to reach BlueHaven readers.',icon:Megaphone,cta:'Ask about sponsorship',href:whatsappUrl,folder:'#d77a55'},
-  {title:'Job & Service Leads',price:'Project-based',description:'Turn visitors who need help into qualified enquiries for BlueHaven services.',icon:ArrowRight,cta:'Hire BlueHaven',href:whatsappUrl,folder:'#4e9b9b'},
-  {title:'Membership',price:'₦2k–₦10k/month',description:'A private creator space with resources, office hours, community and practical support.',icon:Users,cta:'Join the waitlist',href:whatsappUrl,folder:'#aa76a9'},
-  {title:'Subscriptions',price:'Monthly',description:'Recurring access to a growing library of resources, templates and training.',icon:Check,cta:'Join the waitlist',href:whatsappUrl,folder:'#788d4f'},
+  {title:'Digital Products',price:'₦2k–₦15k',description:'Streamlabs/OBS templates, overlays, LUTs, design packs and production checklists.',icon:Download,cta:'Browse resources',href:'#bluehaven-resources-heading',folder:'#3f7cff'},
+  {title:'Mini Courses',price:'₦5k–₦25k',description:'Focused training such as Start Livestreaming in 60 Minutes and practical creator classes.',icon:GraduationCap,cta:'Ask about a course',href:whatsappUrl,folder:'#ff7657'},
+  {title:'Paid Resources',price:'₦1k–₦10k',description:'Handbooks, setup guides, church media playbooks and creator planning systems.',icon:BookOpen,cta:'View resources',href:'#bluehaven-resources-heading',folder:'#a66cff'},
+  {title:'Website Services',price:'₦50k+',description:'Portfolio sites, business websites and focused digital builds that are made to work.',icon:MonitorPlay,cta:'Start a website project',href:whatsappUrl,folder:'#21bfa3'},
+  {title:'Creative Consultations',price:'₦10k–₦30k',description:'30–60 minute troubleshooting, strategy and creative direction sessions.',icon:Wrench,cta:'Book a consultation',href:whatsappUrl,folder:'#ef5e9c'},
+  {title:'Paid Workshops',price:'₦3k–₦10k/person',description:'Monthly livestream, design, content and digital-media sessions for creators and teams.',icon:CalendarDays,cta:'Join a workshop',href:whatsappUrl,folder:'#e4b52f'},
+  {title:'Templates',price:'₦1k–₦10k',description:'Canva social packs, presentations, event graphics and reusable production assets.',icon:LayoutTemplate,cta:'Get a template',href:'#bluehaven-resources-heading',folder:'#79bd45'},
+  {title:'Affiliate Picks',price:'Commission',description:'Recommended software and equipment BlueHaven genuinely uses in real workflows.',icon:ExternalLink,cta:'See recommended tools',href:whatsappUrl,folder:'#6976e8'},
+  {title:'Sponsored Stories',price:'₦10k+',description:'A clearly labelled place for relevant creative, tech and business brands to reach BlueHaven readers.',icon:Megaphone,cta:'Ask about sponsorship',href:whatsappUrl,folder:'#e86b3f'},
+  {title:'Job & Service Leads',price:'Project-based',description:'Turn visitors who need help into qualified enquiries for BlueHaven services.',icon:ArrowRight,cta:'Hire BlueHaven',href:whatsappUrl,folder:'#20a8b0'},
+  {title:'Membership',price:'₦2k–₦10k/month',description:'A private creator space with resources, office hours, community and practical support.',icon:Users,cta:'Join the waitlist',href:whatsappUrl,folder:'#c35bd4'},
+  {title:'Subscriptions',price:'Monthly',description:'Recurring access to a growing library of resources, templates and training.',icon:Check,cta:'Join the waitlist',href:whatsappUrl,folder:'#8aa63f'},
 ];
 
 function FolderCard({o}:{o:(typeof offers)[number]}) {
   const Icon=o.icon;
-  return <article className="group relative min-h-[290px] overflow-hidden pt-9 transition-transform duration-500 hover:-translate-y-2">
-    <div className="absolute inset-0 overflow-hidden rounded-[28px] border border-white/20 bg-white/[.075] shadow-[0_18px_50px_rgba(0,0,0,.28)] backdrop-blur-2xl transition-all duration-500 group-hover:border-white/30 group-hover:bg-white/[.105] group-hover:shadow-[0_24px_65px_rgba(0,0,0,.34)]">
-      <div className="absolute inset-0 bg-gradient-to-br from-white/[.11] via-transparent to-black/[.12]" />
-      <div className="absolute -right-16 -top-20 h-48 w-48 rounded-full blur-3xl opacity-30" style={{backgroundColor:o.folder}} />
-      <div className="absolute left-0 top-0 h-12 w-40 rounded-tl-[27px] rounded-br-[20px] border-r border-b border-white/20 backdrop-blur-xl" style={{backgroundColor:o.folder+'55'}} />
-      <div className="absolute left-3 top-3 h-2 w-20 rounded-full bg-white/25" />
-      <div className="absolute inset-x-5 bottom-4 h-px bg-white/10" />
+  return <article className="group relative min-h-[300px] pt-8 transition-transform duration-500 hover:-translate-y-2">
+    <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute left-0 top-0 h-14 w-40 border border-white/25 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,.28)]" style={{backgroundColor:o.folder+'99',borderRadius:'18px 18px 0 0',clipPath:'polygon(0 0, 70% 0, 82% 34%, 100% 34%, 100% 100%, 0 100%)'}} />
+      <div className="absolute inset-x-0 bottom-0 top-7 border border-white/25 bg-white/[.055] shadow-[0_24px_55px_rgba(0,0,0,.3),inset_0_1px_0_rgba(255,255,255,.2)] backdrop-blur-2xl" style={{borderRadius:'0 24px 24px 24px',clipPath:'polygon(0 0, 18% 0, 22% 5%, 100% 5%, 100% 100%, 0 100%)'}} />
+      <div className="absolute -right-12 top-14 h-36 w-36 rounded-full blur-3xl opacity-35" style={{backgroundColor:o.folder}} />
+      <div className="absolute left-5 right-5 top-[34px] h-px bg-white/20" />
+      <div className="absolute bottom-5 left-5 right-5 h-px bg-white/10" />
     </div>
-    <div className="relative z-10 flex h-full min-h-[280px] flex-col p-6 pt-5">
+    <div className="relative z-10 flex h-full min-h-[292px] flex-col p-6 pt-6">
       <div className="flex items-start justify-between gap-4">
-        <div className="grid h-11 w-11 place-items-center rounded-2xl border border-white/20 bg-white/10 text-white/80 shadow-inner backdrop-blur-md"><Icon size={18}/></div>
-        <span className="rounded-full border border-white/15 bg-black/15 px-3 py-1 text-[10px] font-black tracking-tight text-white/75 backdrop-blur-md">{o.price}</span>
+        <div className="grid h-11 w-11 place-items-center rounded-xl border border-white/20 bg-black/10 text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,.2)] backdrop-blur-md"><Icon size={18}/></div>
+        <span className="rounded-full border border-white/20 bg-black/15 px-3 py-1 text-[10px] font-black tracking-tight text-white/80 backdrop-blur-md">{o.price}</span>
       </div>
       <div className="mt-7">
-        <p className="text-[8px] font-black uppercase tracking-[.2em] text-white/35">BLUEHAVEN FILE</p>
+        <p className="text-[8px] font-black uppercase tracking-[.2em] text-white/38">BLUEHAVEN FILE</p>
         <h3 className="mt-2 text-lg font-black leading-tight text-white">{o.title}</h3>
       </div>
-      <p className="mt-3 flex-1 text-sm leading-6 text-white/55">{o.description}</p>
-      <a href={o.href} className="mt-5 inline-flex w-fit items-center gap-2 border-t border-white/10 pt-4 text-[10px] font-black uppercase tracking-[.15em] text-white/65 transition-colors hover:text-white">{o.cta}<ArrowRight size={13}/></a>
+      <p className="mt-3 flex-1 text-sm leading-6 text-white/58">{o.description}</p>
+      <a href={o.href} className="mt-5 inline-flex w-fit items-center gap-2 border-t border-white/10 pt-4 text-[10px] font-black uppercase tracking-[.15em] text-white/70 transition-colors hover:text-white">{o.cta}<ArrowRight size={13}/></a>
     </div>
   </article>;
 }
