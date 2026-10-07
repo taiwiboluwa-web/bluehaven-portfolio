@@ -314,7 +314,7 @@ function WorkCard({
     <motion.button
       key={project.id}
       type="button"
-      onClick={onOpen}
+      onClick={handleOpen}
       className={`work-grid-card ${isOpening ? "work-folder-opening" : ""} work-folder work-folder-${workFolderColors[index % workFolderColors.length]} group overflow-visible text-left`}
       whileHover={{ y: -6, rotate: index % 2 === 0 ? -0.4 : 0.4 }}
       whileTap={{ scale: 0.99 }}
