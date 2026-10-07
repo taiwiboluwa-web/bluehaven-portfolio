@@ -24,6 +24,24 @@ const offers=[
   {title:'Subscriptions',price:'Monthly',description:'Recurring access to a growing library of resources, templates and training.',icon:Check,cta:'Join the waitlist',href:whatsappUrl},
 ];
 
+function FolderCard({o}:{o:(typeof offers)[number]}) {
+  const Icon=o.icon;
+  return <article className="group relative min-h-[260px] overflow-hidden border border-white/10 bg-[#101010] pt-7 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-[#141414]">
+    <div className="absolute left-0 top-0 h-7 w-28 border-r border-b border-white/10 bg-[#171717] transition-colors group-hover:bg-[#1d1d1d]">
+      <span className="absolute left-4 top-2 text-[8px] font-black uppercase tracking-[.18em] text-white/30">BlueHaven</span>
+    </div>
+    <div className="flex h-full flex-col p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="grid h-10 w-10 place-items-center border border-white/10 bg-white/[.025] text-white/70"><Icon size={17}/></div>
+        <span className="text-[10px] font-black text-white/70">{o.price}</span>
+      </div>
+      <h3 className="mt-6 text-lg font-bold text-white">{o.title}</h3>
+      <p className="mt-2 flex-1 text-sm leading-6 text-white/45">{o.description}</p>
+      <a href={o.href} className="mt-6 inline-flex w-fit items-center gap-2 border-t border-white/10 pt-4 text-[10px] font-black uppercase tracking-[.15em] text-white/65 hover:text-white">{o.cta}<ArrowRight size={13}/></a>
+    </div>
+  </article>;
+}
+
 function ResourcesSection(){
   return <section className="relative mx-auto max-w-7xl px-5 py-20 md:px-10 md:py-24" aria-labelledby="bluehaven-resources-heading">
     <div className="border-t border-white/10 pt-10 md:pt-12">
@@ -42,8 +60,8 @@ function OffersSection(){
   return <section className="relative mx-auto max-w-7xl px-5 pb-20 md:px-10 md:pb-24" aria-labelledby="bluehaven-income-heading">
     <div className="border-y border-white/10 py-10 md:py-14">
       <div className="max-w-3xl"><p className="text-[10px] font-bold uppercase tracking-[.28em] text-white/55">Ways to work with BlueHaven</p><h2 id="bluehaven-income-heading" className="mt-3 text-3xl font-black tracking-tight text-white md:text-5xl">What can we build together?</h2><p className="mt-4 text-sm leading-7 text-white/50 md:text-base">Pick a service, resource, or project and let’s get to work.</p></div>
-      <div className="mt-10 grid gap-px overflow-hidden border border-white/10 bg-white/10 md:grid-cols-2 lg:grid-cols-3">
-        {offers.map(o=>{const Icon=o.icon;return <article key={o.title} className="bg-[#0f0f0f] p-6"><div className="flex items-start justify-between gap-4"><div className="grid h-10 w-10 place-items-center border border-white/10 text-white/70"><Icon size={17}/></div><span className="text-[10px] font-black text-white/80">{o.price}</span></div><h3 className="mt-6 text-lg font-bold text-white">{o.title}</h3><p className="mt-2 text-sm leading-6 text-white/45">{o.description}</p><a href={o.href} className="mt-6 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[.15em] text-white/65 hover:text-white">{o.cta}<ArrowRight size={13}/></a></article>})}
+      <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        {offers.map(o=><FolderCard key={o.title} o={o}/>)}
       </div>
     </div>
   </section>;
