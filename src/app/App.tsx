@@ -1543,19 +1543,19 @@ export default function App() {
                   title="Email Us"
                   className="group flex items-center justify-center w-12 h-12 rounded-xl border transition-all relative overflow-hidden"
                   style={{
-                    background: "rgba(255, 255, 255, 0.05)",
-                    backdropFilter: "blur(10px)",
-                    borderColor: "rgba(255, 255, 255, 0.1)",
-                    boxShadow: "0 4px 30px rgba(0,0,0,0.1), inset 0 0 20px rgba(255,255,255,0.05)",
+                    background: "#EA4335",
+                    borderColor: "#EA4335",
+                    boxShadow: "0 6px 24px rgba(234,67,53,0.24)",
                   }}
                   whileHover={{
                     scale: 1.1,
-                    borderColor: "rgba(255, 255, 255, 0.3)",
-                    background: "rgba(255, 255, 255, 0.1)",
+                    borderColor: "#FF6B5F",
+                    background: "#D93025",
+                    boxShadow: "0 8px 30px rgba(234,67,53,0.38)",
                   }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <Mail className="w-5 h-5 text-gray-300 group-hover:text-white transition-colors relative z-10" />
+                  <Mail className="w-5 h-5 text-white transition-colors relative z-10" />
                 </motion.a>
                 <motion.a
                   href="https://wa.me/2348068483718?text=I%20would%20love%20to%20make%20enquiries%20about%20your%20service"
@@ -1564,19 +1564,19 @@ export default function App() {
                   title="Call Us"
                   className="group flex items-center justify-center w-12 h-12 rounded-xl border transition-all relative overflow-hidden"
                   style={{
-                    background: "rgba(255, 255, 255, 0.05)",
-                    backdropFilter: "blur(10px)",
-                    borderColor: "rgba(255, 255, 255, 0.1)",
-                    boxShadow: "0 4px 30px rgba(0,0,0,0.1), inset 0 0 20px rgba(255,255,255,0.05)",
+                    background: "#1877F2",
+                    borderColor: "#1877F2",
+                    boxShadow: "0 6px 24px rgba(24,119,242,0.24)",
                   }}
                   whileHover={{
                     scale: 1.1,
-                    borderColor: "rgba(255, 255, 255, 0.3)",
-                    background: "rgba(255, 255, 255, 0.1)",
+                    borderColor: "#4593F5",
+                    background: "#0D65D9",
+                    boxShadow: "0 8px 30px rgba(24,119,242,0.38)",
                   }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <Phone className="w-5 h-5 text-gray-300 group-hover:text-white transition-colors relative z-10" />
+                  <Phone className="w-5 h-5 text-white transition-colors relative z-10" />
                 </motion.a>
                 <motion.a
                   href="https://wa.me/2348068483718?text=I%20would%20love%20to%20make%20enquiries%20about%20your%20service"
@@ -1585,19 +1585,19 @@ export default function App() {
                   title="WhatsApp Business"
                   className="group flex items-center justify-center w-12 h-12 rounded-xl border transition-all relative overflow-hidden"
                   style={{
-                    background: "rgba(255, 255, 255, 0.05)",
-                    backdropFilter: "blur(10px)",
-                    borderColor: "rgba(255, 255, 255, 0.1)",
-                    boxShadow: "0 4px 30px rgba(0,0,0,0.1), inset 0 0 20px rgba(255,255,255,0.05)",
+                    background: "#25D366",
+                    borderColor: "#25D366",
+                    boxShadow: "0 6px 24px rgba(37,211,102,0.24)",
                   }}
                   whileHover={{
                     scale: 1.1,
-                    borderColor: "rgba(255, 255, 255, 0.3)",
-                    background: "rgba(255, 255, 255, 0.1)",
+                    borderColor: "#5EE58B",
+                    background: "#20BD5B",
+                    boxShadow: "0 8px 30px rgba(37,211,102,0.38)",
                   }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <MessageCircle className="w-5 h-5 text-gray-300 group-hover:text-white transition-colors relative z-10" />
+                  <MessageCircle className="w-5 h-5 text-white transition-colors relative z-10" />
                 </motion.a>
               </div>
             </div>
