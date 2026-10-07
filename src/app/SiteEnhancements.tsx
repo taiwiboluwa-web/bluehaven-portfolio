@@ -230,14 +230,27 @@ function ProjectGallery({ project, onClose }: { project: Project; onClose: () =>
   );
 }
 
+const workFolderColors = [
+  'blue',
+  'coral',
+  'violet',
+  'teal',
+  'pink',
+  'gold',
+  'lime',
+  'indigo',
+];
+
 function WorkCard({
   project,
   onOpen,
   list = false,
+  index = 0,
 }: {
   project: Project;
   onOpen: () => void;
   list?: boolean;
+  index?: number;
 }) {
   const image = orderedMedia(project)[0];
   const fallback = (
@@ -286,8 +299,8 @@ function WorkCard({
       key={project.id}
       type="button"
       onClick={onOpen}
-      className="work-grid-card group overflow-hidden text-left"
-      whileHover={{ y: -4 }}
+      className={`work-grid-card work-folder work-folder-${workFolderColors[index % workFolderColors.length]} group overflow-visible text-left`}
+      whileHover={{ y: -6, rotate: index % 2 === 0 ? -0.4 : 0.4 }}
       whileTap={{ scale: 0.99 }}
     >
       <div className={`${layoutClass(project.gallery_layout)} work-grid-image`}>
@@ -298,15 +311,19 @@ function WorkCard({
             <img src={image.storage_url} alt={image.alt_text || project.name} loading="lazy" decoding="async" />
           )
         ) : fallback}
+        <div className="work-folder-shine" aria-hidden="true" />
+        <div className="work-folder-label" aria-hidden="true">
+          {project.featured ? 'Featured' : 'Project'}
+        </div>
       </div>
-      <div className="p-6">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <p className="text-[10px] font-bold uppercase tracking-[.2em] text-white/40">{project.category || 'Creative Work'}</p>
-          {project.featured && <span className="text-[10px] font-bold uppercase tracking-[.15em] text-[#ffde59]">Featured</span>}
+      <div className="work-folder-copy">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="text-[10px] font-bold uppercase tracking-[.2em] text-white/55">{project.category || 'Creative Work'}</p>
+          <span className="text-[10px] font-bold uppercase tracking-[.16em] text-white/45">{String(index + 1).padStart(2, '0')}</span>
         </div>
         <h3 className="text-xl font-bold text-white">{project.name}</h3>
-        {project.description && <p className="mt-2 line-clamp-2 text-sm leading-6 text-white/55">{project.description}</p>}
-        <p className="mt-5 text-xs font-semibold uppercase tracking-[.2em] text-white/45 transition group-hover:text-white">
+        {project.description && <p className="mt-2 line-clamp-2 text-sm leading-6 text-white/60">{project.description}</p>}
+        <p className="mt-5 text-xs font-semibold uppercase tracking-[.2em] text-white/55 transition group-hover:text-white">
           {image ? 'Open project gallery →' : 'Open project →'}
         </p>
       </div>
@@ -449,12 +466,13 @@ function RecentWork() {
           )}
 
           <div className={view === 'grid' ? 'work-grid' : 'work-list'}>
-            {visibleProjects.map((project) => (
+            {visibleProjects.map((project, index) => (
               <WorkCard
                 key={project.id}
                 project={project}
                 onOpen={() => setSelectedProjectId(project.id)}
                 list={view === 'list'}
+                index={index}
               />
             ))}
           </div>
