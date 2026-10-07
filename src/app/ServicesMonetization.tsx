@@ -26,22 +26,25 @@ const offers=[
 
 function FolderCard({o}:{o:(typeof offers)[number]}) {
   const Icon=o.icon;
-  return <article className="group relative min-h-[280px] overflow-hidden pt-10 transition-transform duration-300 hover:-translate-y-2">
-    <div className="absolute inset-x-0 top-0 h-full border border-black/10 bg-[#eee] shadow-[0_12px_28px_rgba(0,0,0,.18)] transition-shadow duration-300 group-hover:shadow-[0_18px_36px_rgba(0,0,0,.24)]">
-      <div className="absolute left-0 top-0 h-11 w-36" style={{backgroundColor:o.folder, clipPath:'polygon(0 0, 72% 0, 84% 42%, 100% 42%, 100% 100%, 0 100%)'}} />
-      <div className="absolute inset-x-0 top-9 h-[calc(100%-36px)] border border-black/10 bg-[#f5f5f2]" style={{clipPath:'polygon(0 4%, 15% 0, 100% 0, 100% 100%, 0 100%)'}} />
+  return <article className="group relative min-h-[290px] overflow-hidden pt-9 transition-transform duration-500 hover:-translate-y-2">
+    <div className="absolute inset-0 overflow-hidden rounded-[28px] border border-white/20 bg-white/[.075] shadow-[0_18px_50px_rgba(0,0,0,.28)] backdrop-blur-2xl transition-all duration-500 group-hover:border-white/30 group-hover:bg-white/[.105] group-hover:shadow-[0_24px_65px_rgba(0,0,0,.34)]">
+      <div className="absolute inset-0 bg-gradient-to-br from-white/[.11] via-transparent to-black/[.12]" />
+      <div className="absolute -right-16 -top-20 h-48 w-48 rounded-full blur-3xl opacity-30" style={{backgroundColor:o.folder}} />
+      <div className="absolute left-0 top-0 h-12 w-40 rounded-tl-[27px] rounded-br-[20px] border-r border-b border-white/20 backdrop-blur-xl" style={{backgroundColor:o.folder+'55'}} />
+      <div className="absolute left-3 top-3 h-2 w-20 rounded-full bg-white/25" />
+      <div className="absolute inset-x-5 bottom-4 h-px bg-white/10" />
     </div>
-    <div className="relative z-10 flex h-full min-h-[270px] flex-col p-6 pt-5">
+    <div className="relative z-10 flex h-full min-h-[280px] flex-col p-6 pt-5">
       <div className="flex items-start justify-between gap-4">
-        <div className="grid h-11 w-11 place-items-center border border-black/10 bg-white/75 text-black/70 shadow-sm"><Icon size={18}/></div>
-        <span className="text-[10px] font-black tracking-tight text-black/65">{o.price}</span>
+        <div className="grid h-11 w-11 place-items-center rounded-2xl border border-white/20 bg-white/10 text-white/80 shadow-inner backdrop-blur-md"><Icon size={18}/></div>
+        <span className="rounded-full border border-white/15 bg-black/15 px-3 py-1 text-[10px] font-black tracking-tight text-white/75 backdrop-blur-md">{o.price}</span>
       </div>
       <div className="mt-7">
-        <p className="text-[8px] font-black uppercase tracking-[.2em] text-black/35">BLUEHAVEN FILE</p>
-        <h3 className="mt-2 text-lg font-black leading-tight text-black">{o.title}</h3>
+        <p className="text-[8px] font-black uppercase tracking-[.2em] text-white/35">BLUEHAVEN FILE</p>
+        <h3 className="mt-2 text-lg font-black leading-tight text-white">{o.title}</h3>
       </div>
-      <p className="mt-3 flex-1 text-sm leading-6 text-black/55">{o.description}</p>
-      <a href={o.href} className="mt-5 inline-flex w-fit items-center gap-2 border-t border-black/10 pt-4 text-[10px] font-black uppercase tracking-[.15em] text-black/65 hover:text-black">{o.cta}<ArrowRight size={13}/></a>
+      <p className="mt-3 flex-1 text-sm leading-6 text-white/55">{o.description}</p>
+      <a href={o.href} className="mt-5 inline-flex w-fit items-center gap-2 border-t border-white/10 pt-4 text-[10px] font-black uppercase tracking-[.15em] text-white/65 transition-colors hover:text-white">{o.cta}<ArrowRight size={13}/></a>
     </div>
   </article>;
 }
