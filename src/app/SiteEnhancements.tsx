@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, X, Grid2X2, List } from 'lucide-react';
@@ -253,6 +253,22 @@ function WorkCard({
   index?: number;
 }) {
   const image = orderedMedia(project)[0];
+  const [isOpening, setIsOpening] = useState(false);
+  const openTimer = useRef<number | null>(null);
+
+  const handleOpen = () => {
+    if (isOpening) return;
+    setIsOpening(true);
+    openTimer.current = window.setTimeout(() => {
+      onOpen();
+      setIsOpening(false);
+    }, 620);
+  };
+
+  useEffect(() => () => {
+    if (openTimer.current) window.clearTimeout(openTimer.current);
+  }, []);
+
   const fallback = (
     <div className="grid h-full place-items-center bg-[radial-gradient(circle_at_50%_20%,rgba(127,86,214,.38),transparent_58%),linear-gradient(135deg,#17131f,#0d0d10)]">
       <div className="text-center">
@@ -267,7 +283,7 @@ function WorkCard({
       <motion.button
         key={project.id}
         type="button"
-        onClick={onOpen}
+        onClick={handleOpen}
         className="work-list-item group w-full text-left"
         whileHover={{ x: 4 }}
         whileTap={{ scale: 0.995 }}
@@ -299,10 +315,16 @@ function WorkCard({
       key={project.id}
       type="button"
       onClick={onOpen}
-      className={`work-grid-card work-folder work-folder-${workFolderColors[index % workFolderColors.length]} group overflow-visible text-left`}
+      className={`work-grid-card ${isOpening ? "work-folder-opening" : ""} work-folder work-folder-${workFolderColors[index % workFolderColors.length]} group overflow-visible text-left`}
       whileHover={{ y: -6, rotate: index % 2 === 0 ? -0.4 : 0.4 }}
       whileTap={{ scale: 0.99 }}
     >
+      <motion.span
+        className="work-folder-tab-motion"
+        aria-hidden="true"
+        animate={isOpening ? { y: -11, rotateX: -58, scaleX: 1.04 } : { y: 0, rotateX: 0, scaleX: 1 }}
+        transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+      />
       <div className={`${layoutClass(project.gallery_layout)} work-grid-image`}>
         {image ? (
           image.media_type === 'video' ? (
@@ -369,12 +391,12 @@ function RecentWork() {
         .then((data) => setProjects(Array.isArray(data.projects) ? data.projects : []))
         .catch(() => {});
 
-    load();
-    const timer = window.setInterval(load, 10000);
-    window.addEventListener('focus', load);
+    const timer = window.setTimeout(load, 0);
+    const refresh = () => load();
+    window.addEventListener('focus', refresh);
     return () => {
-      window.clearInterval(timer);
-      window.removeEventListener('focus', load);
+      window.clearTimeout(timer);
+      window.removeEventListener('focus', refresh);
       node.remove();
     };
   }, []);
