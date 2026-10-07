@@ -41,46 +41,76 @@ async function paystackRequest(path: string, init?: RequestInit) {
 async function handlePayment(req: Req, res: Res, query: URLSearchParams) {
   const action = query.get('payment');
   if (!action) return false;
-  const key = String(query.get('resource') || (body(req).resource || '')) as PaymentProductKey;
-  const item = PAYMENT_PRODUCTS[key];
-  if (!item) return send(res, { error: 'Unknown resource' }, 400), true;
+
+  const rawResources = body(req).resources ?? query.get('resources') ?? body(req).resource ?? query.get('resource') ?? '';
+  const requestedKeys = Array.isArray(rawResources)
+    ? rawResources.map(String)
+    : String(rawResources).split(',');
+  const keys = Array.from(new Set(requestedKeys.filter((key): key is PaymentProductKey => key in PAYMENT_PRODUCTS)));
+  const items = keys.map((key) => PAYMENT_PRODUCTS[key]);
+  if (!items.length) return send(res, { error: 'Select at least one resource.' }, 400), true;
 
   if (action === 'initialize') {
     if (req.method !== 'POST') return send(res, { error: 'Method not allowed' }, 405), true;
     const email = String(body(req).email || '').trim().toLowerCase();
     if (!/^\\S+@\\S+\\.\\S+$/.test(email)) return send(res, { error: 'Enter a valid email address.' }, 400), true;
+
     const origin = String(req.headers?.origin || 'https://www.bluehavens.name.ng').replace(/\\/$/, '');
+    const amount = items.reduce((sum, item) => sum + item.amount, 0);
     const data = await paystackRequest('/transaction/initialize', {
       method: 'POST',
       body: JSON.stringify({
         email,
-        amount: String(item.amount * 100),
+        amount: String(amount * 100),
         currency: 'NGN',
-        callback_url: `${origin}/resources/checkout?resource=${encodeURIComponent(key)}`,
-        metadata: { resource: key, product_name: item.name },
+        callback_url: `${origin}/resources/checkout?resources=${encodeURIComponent(keys.join(','))}`,
+        metadata: { resources: keys, product_names: items.map((item) => item.name), total_amount: amount },
       }),
     });
-    return send(res, { ok: true, authorization_url: data.data.authorization_url, reference: data.data.reference, product: { key, name: item.name, amount: item.amount } }), true;
+
+    return send(res, {
+      ok: true,
+      authorization_url: data.data.authorization_url,
+      reference: data.data.reference,
+      products: items.map((item, index) => ({ key: keys[index], name: item.name, amount: item.amount })),
+      total: amount,
+    }), true;
   }
 
   if (action === 'verify') {
     if (req.method !== 'GET') return send(res, { error: 'Method not allowed' }, 405), true;
     const reference = String(query.get('reference') || '').trim();
     if (!reference) return send(res, { error: 'Missing payment reference.' }, 400), true;
+
     const data = await paystackRequest(`/transaction/verify/${encodeURIComponent(reference)}`);
     const transaction = data.data;
-    const paidKey = String(transaction?.metadata?.resource || key) as PaymentProductKey;
-    const paidProduct = PAYMENT_PRODUCTS[paidKey];
-    if (!paidProduct || transaction.status !== 'success' || Number(transaction.amount) !== paidProduct.amount * 100) {
-      return send(res, { error: 'Payment has not been confirmed for this resource.' }, 402), true;
+    const metadataResources = transaction?.metadata?.resources;
+    const paidKeys = Array.isArray(metadataResources)
+      ? metadataResources.map(String)
+      : String(metadataResources || transaction?.metadata?.resource || keys.join(',')).split(',');
+    const verifiedKeys = Array.from(new Set(paidKeys.filter((key): key is PaymentProductKey => key in PAYMENT_PRODUCTS)));
+    const verifiedItems = verifiedKeys.map((key) => PAYMENT_PRODUCTS[key]);
+    const expectedAmount = verifiedItems.reduce((sum, item) => sum + item.amount, 0) * 100;
+
+    if (!verifiedItems.length || transaction.status !== 'success' || Number(transaction.amount) !== expectedAmount) {
+      return send(res, { error: 'Payment has not been confirmed for the selected resources.' }, 402), true;
     }
-    const downloadUrl = String(process.env[paidProduct.downloadEnv] || '').trim();
-    return send(res, { ok: true, paid: true, reference, product: paidProduct.name, download_url: downloadUrl || null }), true;
+
+    const downloads = verifiedItems
+      .map((item) => ({ name: item.name, url: String(process.env[item.downloadEnv] || '').trim() }))
+      .filter((item) => item.url);
+
+    return send(res, {
+      ok: true,
+      paid: true,
+      reference,
+      products: verifiedItems.map((item) => item.name),
+      downloads,
+    }), true;
   }
 
   return send(res, { error: 'Unknown payment action' }, 400), true;
 }
-
 
 const db = () => {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not configured');
