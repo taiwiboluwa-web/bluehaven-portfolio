@@ -1657,22 +1657,30 @@ export default function App() {
                   target="_blank"
                   rel="noopener noreferrer"
                   title="Threads"
+                  aria-label="Threads"
                   className="group flex items-center justify-center w-12 h-12 rounded-xl border transition-all relative overflow-hidden"
                   style={{
-                    background: "rgba(255, 255, 255, 0.05)",
-                    backdropFilter: "blur(10px)",
-                    borderColor: "rgba(255, 255, 255, 0.1)",
-                    boxShadow: "0 4px 30px rgba(0,0,0,0.1), inset 0 0 20px rgba(255,255,255,0.05)",
+                    background: "#000000",
+                    borderColor: "#FFFFFF",
+                    boxShadow: "0 6px 24px rgba(255,255,255,0.10)",
                   }}
                   whileHover={{
                     scale: 1.1,
-                    borderColor: "rgba(255, 255, 255, 0.3)",
-                    background: "rgba(255, 255, 255, 0.1)",
+                    borderColor: "#FFFFFF",
+                    background: "#111111",
+                    boxShadow: "0 8px 30px rgba(255,255,255,0.18)",
                   }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <svg className="w-5 h-5 text-gray-300 group-hover:text-white transition-colors relative z-10" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 14.5c-.102 2.654-1.316 4.506-3.704 5.106-.894.224-1.87.318-2.856.318-3.704 0-5.894-1.908-5.894-5.166 0-3.258 2.19-5.166 5.894-5.166.986 0 1.962.094 2.856.318 2.388.6 3.602 2.452 3.704 5.106v.484zm-2.85-2.408c-.224-1.302-1.176-2.052-2.556-2.052-1.38 0-2.332.75-2.556 2.052h5.112z" />
+                  <svg className="w-6 h-6 relative z-10" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M18.25 8.7c-.55-2.55-2.35-4.05-5.08-4.05-3.3 0-5.55 2.1-5.55 5.45 0 3.4 2.3 5.65 5.7 5.65 2.2 0 3.75-1.05 4.45-2.65.55-1.25.45-2.75-.35-3.85-.8-1.1-2.25-1.7-4.1-1.7-2.35 0-3.9 1.05-3.9 2.7 0 1.45 1.2 2.4 3.05 2.4 2.2 0 3.6-1.25 3.6-3.35 0-3.9-2.2-6.15-5.8-6.15"
+                      fill="none"
+                      stroke="#FFFFFF"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </motion.a>
                 <motion.a
