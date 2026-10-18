@@ -85,6 +85,7 @@ export default function SBCS() {
           <p className="sbcs-lede">A school-branded birthday celebration workflow that helps your team prepare thoughtful greetings for parents and guardians — without searching through spreadsheets every morning.</p>
           <div className="sbcs-hero-actions">
             <a className="sbcs-button sbcs-button-primary" href="#sbcs-enquire">Discuss a school pilot <ArrowRight size={17} /></a>
+            <a className="sbcs-button sbcs-button-secondary" href="https://forms.gle/izoiFrx2weZPNAJP8" target="_blank" rel="noopener noreferrer">Register your school's interest <ArrowRight size={15} /></a>
             <a className="sbcs-button sbcs-button-secondary" href="#sbcs-how">See how it works</a>
           </div>
           <div className="sbcs-trust-line"><ShieldCheck size={16} /> Staff-reviewed workflow · Permission checks · Delivery records</div>
@@ -125,7 +126,7 @@ export default function SBCS() {
       </section>
 
       <section className="sbcs-enquire" id="sbcs-enquire">
-        <div className="sbcs-enquire-copy"><p className="sbcs-eyebrow">LET'S SET UP YOUR SCHOOL</p><h2>Make birthdays part of your school's <em>care culture.</em></h2><p>Tell us a little about your school. We’ll open a pre-filled WhatsApp enquiry so we can discuss the pilot, data setup and suitable messaging options.</p><div className="sbcs-enquire-note"><Users size={17} /> No student records are requested in this enquiry form.</div></div>
+        <div className="sbcs-enquire-copy"><p className="sbcs-eyebrow">LET'S SET UP YOUR SCHOOL</p><h2>Make birthdays part of your school's <em>care culture.</em></h2><p>Tell us a little about your school. We’ll open a pre-filled WhatsApp enquiry so we can discuss the pilot, data setup and suitable messaging options.</p><div className="sbcs-enquire-note"><Users size={17} /> No student records are requested in this enquiry form.</div><a className="sbcs-button sbcs-button-secondary sbcs-survey-link" href="https://forms.gle/izoiFrx2weZPNAJP8" target="_blank" rel="noopener noreferrer">Prefer the interest survey? Open the SBCS survey <ArrowRight size={15} /></a></div>
         <form className="sbcs-form" onSubmit={submitEnquiry}>
           <label>School name<input required value={school} onChange={e => setSchool(e.target.value)} placeholder="e.g. Stonebridge School" /></label>
           <label>Your name<input required value={contact} onChange={e => setContact(e.target.value)} placeholder="Name of school contact" /></label>
