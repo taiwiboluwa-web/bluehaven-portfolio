@@ -19,6 +19,14 @@
   ],
   "rewrites": [
     {
+      "source": "/admin/sbcs",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/admin/sbcs/",
+      "destination": "/admin.html"
+    },
+    {
       "source": "/resources",
       "destination": "/index.html"
     },
