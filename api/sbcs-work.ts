@@ -158,7 +158,7 @@ export default async function handler(req:Req,res:Res){
    const id=clean(b.id,60),status=clean(b.status,24);
    if(status==='approved'&&!['admin','coordinator','reviewer'].includes(actor.role))return send(res,{error:'Your role cannot approve birthday messages.'},403);
    if(!['needs_approval','approved','cancelled','draft'].includes(status))return send(res,{error:'Unsupported queue status. Messages cannot be marked sent from this workspace.'},400);
-   const rows=await q.query('UPDATE bluehaven_sbcs_queue SET status=$2,approved_by=CASE WHEN $2=\\'approved\\' THEN $3 ELSE approved_by END,approved_at=CASE WHEN $2=\'approved\' THEN NOW() ELSE approved_at END,updated_at=NOW() WHERE id=$1 RETURNING id,status',[id,status,actor.name]);
+const rows=await q.query(`UPDATE bluehaven_sbcs_queue SET status=$2,approved_by=CASE WHEN $2='approved' THEN $3 ELSE approved_by END,approved_at=CASE WHEN $2='approved' THEN NOW() ELSE approved_at END,updated_at=NOW() WHERE id=$1 RETURNING id,status`,[id,status,actor.name]);
    if(!rows[0])return send(res,{error:'Queue item not found.'},404);
    await log(q,'queue_status_changed','Birthday greeting status changed to '+status,'queue',id,{status,delivery_locked:true},actor.name);
    return send(res,{ok:true,status:rows[0].status,delivery_locked:true});
