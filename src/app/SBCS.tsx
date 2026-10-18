@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, Cake, CalendarCheck, CheckCircle2, ClipboardCheck, Mail, MessageCircle, Palette, ShieldCheck, Sparkles, Users, Workflow } from 'lucide-react';
 import './SBCS.css';
 
@@ -45,7 +46,7 @@ export default function SBCS() {
     };
   }, []);
 
-  const submitEnquiry = (event: React.FormEvent<HTMLFormElement>) => {
+  const submitEnquiry = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const text = [
       'Hello BlueHaven Studios, I would like to discuss the Student Birthday Celebration System (SBCS).',
