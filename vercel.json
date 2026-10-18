@@ -27,6 +27,10 @@
       "destination": "/admin.html"
     },
     {
+      "source": "/admin/sbcs/:path*",
+      "destination": "/admin.html"
+    },
+    {
       "source": "/resources",
       "destination": "/index.html"
     },
