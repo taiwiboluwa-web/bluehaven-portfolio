@@ -105,7 +105,7 @@ export default async function handler(req:Req,res:Res){
    if(actor.role!=='admin')return send(res,{error:'Only the BlueHaven admin can create staff accounts.'},403);
    const name=clean(b.name,120),email=clean(b.email,254).toLowerCase(),password=String(b.password||''),role=clean(b.role,24);
    if(name.length<2||!email||!['coordinator','operator','reviewer'].includes(role)||password.length<12)return send(res,{error:'Name, valid email, a staff role and a password of at least 12 characters are required.'},400);
-   if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))return send(res,{error:'Enter a valid staff email.'},400);
+   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return send(res,{error:'Enter a valid staff email.'},400);
    const salt=randomBytes(16).toString('hex'),hash=scryptSync(password,salt,64).toString('hex'),id=randomUUID();
    try{await q.query('INSERT INTO bluehaven_sbcs_staff(id,name,email,password_hash,role) VALUES($1,$2,$3,$4,$5)',[id,name,email,salt+':'+hash,role])}catch{return send(res,{error:'Could not create staff account. That email may already be registered.'},409)}
    await log(q,'staff_created','Staff account created: '+name,'staff',id,{role},actor.name);return send(res,{ok:true,id});
