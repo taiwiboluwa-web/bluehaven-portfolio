@@ -58,7 +58,7 @@ export default function SBCS() {
       `Notes: ${message || 'No additional notes'}`,
       '',
       'Please share the pilot setup and next steps.',
-    ].join('\\n');
+    ].join('\n');
     setSubmitted(true);
     // Save the limited enquiry record for the admin dashboard while preserving the WhatsApp hand-off.
     void fetch('/api/sbcs', {
