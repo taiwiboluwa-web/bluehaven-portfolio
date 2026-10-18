@@ -9,7 +9,8 @@ installPortfolioGalleryRuntime();
 const root = createRoot(document.getElementById('root')!);
 const path = window.location.pathname;
 const isBlogAdmin = path === '/admin/blog' || path === '/admin/blog/';
-const isAdmin = (path === '/admin' || path.startsWith('/admin/')) && !isBlogAdmin;
+const isSBCSAdmin = path === '/admin/sbcs' || path === '/admin/sbcs/';
+const isAdmin = (path === '/admin' || path.startsWith('/admin/')) && !isBlogAdmin && !isSBCSAdmin;
 const isWriter = path === '/stories/write' || path === '/stories/account';
 const isResourceShelf = path === '/resources' || path === '/resources/';
 const isResourceCheckout = path === '/resources/checkout' || path === '/resources/checkout/';
@@ -17,7 +18,7 @@ const hasLegacyResourceSelection = isResourceCheckout && new URLSearchParams(win
 const isStories = (path === '/stories' || path.startsWith('/stories/')) && !isWriter;
 const isSBCS = path === '/services/sbcs' || path === '/services/sbcs/';
 
-if (isBlogAdmin) {
+if (isSBCSAdmin) {\n  import('./app/SBCSAdmin.tsx').then(({ default: SBCSAdmin }) => root.render(<SBCSAdmin />));\n} else if (isBlogAdmin) {
   import('./app/BlogAdmin.tsx').then(({ default: BlogAdmin }) => root.render(<BlogAdmin />));
 } else if (isAdmin) {
   import('./lib/imageOptimization.ts').then(({ installAdminImageOptimization }) => {
