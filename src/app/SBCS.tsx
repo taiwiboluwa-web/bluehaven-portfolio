@@ -58,8 +58,15 @@ export default function SBCS() {
       `Notes: ${message || 'No additional notes'}`,
       '',
       'Please share the pilot setup and next steps.',
-    ].join('\n');
+    ].join('\\n');
     setSubmitted(true);
+    // Save the limited enquiry record for the admin dashboard while preserving the WhatsApp hand-off.
+    void fetch('/api/sbcs', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({ action: 'create_enquiry', school, contact, email, size, message, company_website: '' }),
+    }).catch(error => console.error('Could not save SBCS enquiry:', error));
     window.open(whatsappBase + encodeURIComponent(text), '_blank', 'noopener,noreferrer');
   };
 
