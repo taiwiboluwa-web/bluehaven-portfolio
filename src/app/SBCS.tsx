@@ -144,7 +144,7 @@ export default function SBCS() {
             </div>
             <nav className="sbcs-footer-links" aria-label="Explore BlueHaven">
               <h3>Explore</h3>
-              <a href="/">Home</a><a href="/services">Services</a><a href="/work">Portfolio</a><a href="/process">Process</a>
+              <a href="/">Home</a><a href="/services">Services</a><a href="/stories">Stories</a><a href="/work">Work</a><a href="/about">About</a><a href="/process">Process</a><a href="/inquire">Inquire</a>
             </nav>
             <div className="sbcs-footer-contact">
               <h3>Contact Us</h3>
