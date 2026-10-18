@@ -137,30 +137,32 @@ export default function SBCS() {
         <div className="sbcs-footer-inner">
           <div className="sbcs-footer-grid">
             <div className="sbcs-footer-brand">
-              <a className="sbcs-wordmark" href="/" aria-label="BlueHaven Studios home"><span>BLUE</span>HAVEN<span className="sbcs-dot">.</span></a>
-              <h2>Ready to get started?</h2>
+              <h2>Ready to Get Started?</h2>
               <span className="sbcs-footer-rule" />
-              <p>Let's create something amazing together. Partner with BlueHaven Studios to build thoughtful identities and unforgettable digital experiences.</p>
-              <a className="sbcs-footer-chat" href="https://wa.me/2348068483718?text=Hello%20BlueHaven%20Studios%2C%20I%20would%20like%20to%20make%20an%20enquiry." target="_blank" rel="noopener noreferrer"><MessageCircle size={17} /> Chat with us <ArrowRight size={15} /></a>
+              <p>Let's create something amazing together. Partner with us to build unique identities and unforgettable digital experiences.</p>
+              <a className="sbcs-footer-chat" href="https://wa.me/2348068483718?text=I%20would%20love%20to%20make%20enquiries%20about%20your%20service" target="_blank" rel="noopener noreferrer"><MessageCircle size={17} /> Chat with us <ArrowRight size={15} /></a>
             </div>
             <nav className="sbcs-footer-links" aria-label="Explore BlueHaven">
-              <h3>Explore</h3><a href="/">Home</a><a href="/services">Services</a><a href="/work">Portfolio</a><a href="/process">Process</a>
+              <h3>Explore</h3>
+              <a href="/">Home</a><a href="/services">Services</a><a href="/work">Portfolio</a><a href="/process">Process</a>
             </nav>
             <div className="sbcs-footer-contact">
-              <h3>Contact us</h3>
-              <a className="sbcs-footer-contact-link" href="mailto:bluehavens.studios@gmail.com"><Mail size={17} /> bluehavens.studios@gmail.com</a>
-              <a className="sbcs-footer-contact-link" href="https://wa.me/2348068483718?text=Hello%20BlueHaven%20Studios" target="_blank" rel="noopener noreferrer"><MessageCircle size={17} /> WhatsApp Business</a>
+              <h3>Contact Us</h3>
+              <div className="sbcs-footer-icon-links">
+                <a className="sbcs-contact-icon sbcs-contact-email" href="mailto:bluehavens.studios@gmail.com" title="Email BlueHaven" aria-label="Email BlueHaven"><Mail size={20} /></a>
+                <a className="sbcs-contact-icon sbcs-contact-phone" href="https://wa.me/2348068483718?text=I%20would%20love%20to%20make%20enquiries%20about%20your%20service" target="_blank" rel="noopener noreferrer" title="Contact BlueHaven" aria-label="Contact BlueHaven"><MessageCircle size={20} /></a>
+                <a className="sbcs-contact-icon sbcs-contact-whatsapp" href="https://wa.me/2348068483718?text=Hello%20BlueHaven%20Studios" target="_blank" rel="noopener noreferrer" title="WhatsApp Business" aria-label="WhatsApp Business"><MessageCircle size={20} /></a>
+              </div>
             </div>
             <div className="sbcs-footer-social">
-              <h3>Follow us</h3>
+              <h3>Follow Us</h3>
               <div className="sbcs-social-list">
-                <a href="https://www.instagram.com/blue.havenstudios" target="_blank" rel="noopener noreferrer" aria-label="Instagram" title="Instagram"><Instagram size={19} /></a>
-                <a href="https://www.tiktok.com/@bluehaven.studio" target="_blank" rel="noopener noreferrer" aria-label="TikTok" title="TikTok"><Music size={19} /></a>
-                <a href="https://www.threads.com/@blue.havenstudios" target="_blank" rel="noopener noreferrer" aria-label="Threads" title="Threads"><LinkIcon size={19} /></a>
-                <a href="https://chat.whatsapp.com/Lf3Vw6FaRtZFDevqjOq3EA" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp community" title="WhatsApp community"><MessageCircle size={19} /></a>
-                <a href="https://campsite.bio/blue.havenstudios" target="_blank" rel="noopener noreferrer" aria-label="All BlueHaven links" title="All links"><ArrowRight size={19} /></a>
+                <a className="sbcs-social-instagram" href="https://www.instagram.com/blue.havenstudios" target="_blank" rel="noopener noreferrer" aria-label="Instagram" title="Instagram"><Instagram size={20} /></a>
+                <a className="sbcs-social-tiktok" href="https://www.tiktok.com/@bluehaven.studio" target="_blank" rel="noopener noreferrer" aria-label="TikTok" title="TikTok"><Music size={20} /></a>
+                <a className="sbcs-social-threads" href="https://www.threads.com/@blue.havenstudios" target="_blank" rel="noopener noreferrer" aria-label="Threads" title="Threads"><LinkIcon size={20} /></a>
+                <a className="sbcs-social-whatsapp" href="https://chat.whatsapp.com/Lf3Vw6FaRtZFDevqjOq3EA" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp community" title="WhatsApp community"><MessageCircle size={20} /></a>
+                <a className="sbcs-social-links" href="https://campsite.bio/blue.havenstudios" target="_blank" rel="noopener noreferrer" aria-label="All BlueHaven links" title="All links"><ArrowRight size={20} /></a>
               </div>
-              <p className="sbcs-footer-social-note">Creative work. Intentional storytelling. Digital experiences.</p>
             </div>
           </div>
           <div className="sbcs-footer-bottom">
