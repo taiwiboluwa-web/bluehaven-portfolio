@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { ArrowLeft, ArrowRight, Cake, CalendarCheck, CheckCircle2, ClipboardCheck, Mail, MessageCircle, Palette, ShieldCheck, Sparkles, Users, Workflow } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Cake, CalendarCheck, CheckCircle2, ClipboardCheck, Instagram, Link as LinkIcon, Mail, MessageCircle, Music, Palette, ShieldCheck, Sparkles, Users, Workflow } from 'lucide-react';
 import './SBCS.css';
 
 const whatsappBase = 'https://wa.me/2348068483718?text=';
@@ -131,7 +131,44 @@ export default function SBCS() {
         </form>
       </section>
 
-      <footer className="sbcs-footer"><a className="sbcs-wordmark" href="/"><span>BLUE</span>HAVEN<span className="sbcs-dot">.</span></a><p>Creativity Beyond Limits.</p><a href="/services">Explore BlueHaven services <ArrowRight size={14} /></a><small>© {new Date().getFullYear()} BlueHaven Studios</small></footer>
+      <footer className="sbcs-footer" id="contact">
+        <div className="sbcs-footer-glow sbcs-footer-glow-one" aria-hidden="true" />
+        <div className="sbcs-footer-glow sbcs-footer-glow-two" aria-hidden="true" />
+        <div className="sbcs-footer-inner">
+          <div className="sbcs-footer-grid">
+            <div className="sbcs-footer-brand">
+              <a className="sbcs-wordmark" href="/" aria-label="BlueHaven Studios home"><span>BLUE</span>HAVEN<span className="sbcs-dot">.</span></a>
+              <h2>Ready to get started?</h2>
+              <span className="sbcs-footer-rule" />
+              <p>Let's create something amazing together. Partner with BlueHaven Studios to build thoughtful identities and unforgettable digital experiences.</p>
+              <a className="sbcs-footer-chat" href="https://wa.me/2348068483718?text=Hello%20BlueHaven%20Studios%2C%20I%20would%20like%20to%20make%20an%20enquiry." target="_blank" rel="noopener noreferrer"><MessageCircle size={17} /> Chat with us <ArrowRight size={15} /></a>
+            </div>
+            <nav className="sbcs-footer-links" aria-label="Explore BlueHaven">
+              <h3>Explore</h3><a href="/">Home</a><a href="/services">Services</a><a href="/work">Portfolio</a><a href="/process">Process</a>
+            </nav>
+            <div className="sbcs-footer-contact">
+              <h3>Contact us</h3>
+              <a className="sbcs-footer-contact-link" href="mailto:bluehavens.studios@gmail.com"><Mail size={17} /> bluehavens.studios@gmail.com</a>
+              <a className="sbcs-footer-contact-link" href="https://wa.me/2348068483718?text=Hello%20BlueHaven%20Studios" target="_blank" rel="noopener noreferrer"><MessageCircle size={17} /> WhatsApp Business</a>
+            </div>
+            <div className="sbcs-footer-social">
+              <h3>Follow us</h3>
+              <div className="sbcs-social-list">
+                <a href="https://www.instagram.com/blue.havenstudios" target="_blank" rel="noopener noreferrer" aria-label="Instagram" title="Instagram"><Instagram size={19} /></a>
+                <a href="https://www.tiktok.com/@bluehaven.studio" target="_blank" rel="noopener noreferrer" aria-label="TikTok" title="TikTok"><Music size={19} /></a>
+                <a href="https://www.threads.com/@blue.havenstudios" target="_blank" rel="noopener noreferrer" aria-label="Threads" title="Threads"><LinkIcon size={19} /></a>
+                <a href="https://chat.whatsapp.com/Lf3Vw6FaRtZFDevqjOq3EA" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp community" title="WhatsApp community"><MessageCircle size={19} /></a>
+                <a href="https://campsite.bio/blue.havenstudios" target="_blank" rel="noopener noreferrer" aria-label="All BlueHaven links" title="All links"><ArrowRight size={19} /></a>
+              </div>
+              <p className="sbcs-footer-social-note">Creative work. Intentional storytelling. Digital experiences.</p>
+            </div>
+          </div>
+          <div className="sbcs-footer-bottom">
+            <p>© {new Date().getFullYear()} BlueHaven Studios. All rights reserved.</p>
+            <div><a href="/privacy">Privacy</a><a href="/terms">Terms of service</a><a href="/services/sbcs">Student Birthday Celebration System</a></div>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
