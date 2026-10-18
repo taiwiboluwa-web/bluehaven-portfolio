@@ -19,6 +19,14 @@
   ],
   "rewrites": [
     {
+      "source": "/api/sbcs-work",
+      "destination": "/api/sbcs?handler=work"
+    },
+    {
+      "source": "/api/sbcs-work/",
+      "destination": "/api/sbcs?handler=work"
+    },
+    {
       "source": "/admin/sbcs",
       "destination": "/admin.html"
     },

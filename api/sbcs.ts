@@ -1,6 +1,7 @@
 import { neon } from '@neondatabase/serverless';
 import { randomUUID, createHash } from 'node:crypto';
 import { isAuthenticated } from './_auth.js';
+import sbcsWorkHandler from './_sbcs-work.js';
 
 type Req = { method?: string; url?: string; headers?: Record<string,string|undefined>; body?: unknown };
 type Res = { status:(code:number)=>Res; setHeader:(name:string,value:string)=>Res; json:(data:unknown)=>void };
@@ -46,6 +47,10 @@ const event = async (q:any,event_type:string,summary:string,enquiry_id:string|nu
   q.query('INSERT INTO bluehaven_sbcs_events(id,event_type,summary,enquiry_id,metadata) VALUES($1,$2,$3,$4,$5::jsonb)',[randomUUID(),event_type,summary,enquiry_id,JSON.stringify(metadata)]);
 
 export default async function handler(req:Req,res:Res) {
+  // Keep the existing /api/sbcs-work URL while routing it through this shared serverless entry point.
+  if (req.url && new URL(req.url, 'https://bluehavens.name.ng').searchParams.get('handler') === 'work') {
+    return sbcsWorkHandler(req, res);
+  }
   try {
     const q=db();
     await ensure(q);
