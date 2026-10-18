@@ -110,6 +110,7 @@ export default async function handler(req:Req,res:Res){
    await log(q,'staff_created','Staff account created: '+name,'staff',id,{role});return send(res,{ok:true,id});
   }
   if(action==='create_school'){
+   if(actor.role==='reviewer')return send(res,{error:'Reviewer accounts cannot edit school workspaces.'},403);
    const name=clean(b.name,180),contact=clean(b.contact_name,120),email=clean(b.email,254),phone=clean(b.phone,40);
    if(name.length<2)return send(res,{error:'Enter a school name.'},400);
    if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return send(res,{error:'Enter a valid school email.'},400);
@@ -117,6 +118,7 @@ export default async function handler(req:Req,res:Res){
    await log(q,'school_created','School workspace created: '+name,'school',id);return send(res,{ok:true,id},201);
   }
   if(action==='create_student'){
+   if(actor.role==='reviewer')return send(res,{error:'Reviewer accounts cannot edit student records.'},403);
    const school_id=clean(b.school_id,60),first_name=clean(b.first_name,100),last_name=clean(b.last_name,100),dob=clean(b.date_of_birth,10);
    if(!school_id||first_name.length<1||!/^\d{4}-\d{2}-\d{2}$/.test(dob))return send(res,{error:'School, first name and valid date of birth are required.'},400);
    const guardian_email=clean(b.guardian_email,254);if(guardian_email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guardian_email))return send(res,{error:'Guardian email is invalid.'},400);
@@ -125,6 +127,7 @@ export default async function handler(req:Req,res:Res){
    await log(q,'student_created','Student birthday record added','student',id,{school_id});return send(res,{ok:true,id},201);
   }
   if(action==='create_template'){
+   if(actor.role==='reviewer')return send(res,{error:'Reviewer accounts cannot edit templates.'},403);
    const name=clean(b.name,140),channel=clean(b.channel,20),body=clean(b.body,4000),school_id=clean(b.school_id,60);
    if(name.length<2||!['whatsapp','email'].includes(channel)||body.length<3)return send(res,{error:'Template name, channel and message body are required.'},400);
    if(!body.includes('{{student_first_name}}')&&!body.includes('{{student_name}}'))return send(res,{error:'Add a student name placeholder to personalise the greeting.'},400);
@@ -132,6 +135,7 @@ export default async function handler(req:Req,res:Res){
    await log(q,'template_created','Message template created: '+name,'template',id,{channel});return send(res,{ok:true,id},201);
   }
   if(action==='generate_queue'){
+   if(actor.role==='reviewer')return send(res,{error:'Reviewer accounts cannot generate queue items.'},403);
    const school_id=clean(b.school_id,60),days=Math.min(90,Math.max(1,Number(b.days)||30));
    const rows=await q.query(`SELECT st.*,sc.name AS school_name,sc.id AS sid,make_date(EXTRACT(YEAR FROM CURRENT_DATE)::int + CASE WHEN make_date(EXTRACT(YEAR FROM CURRENT_DATE)::int,EXTRACT(MONTH FROM st.date_of_birth)::int,LEAST(EXTRACT(DAY FROM st.date_of_birth)::int,28)) < CURRENT_DATE THEN 1 ELSE 0 END,EXTRACT(MONTH FROM st.date_of_birth)::int,LEAST(EXTRACT(DAY FROM st.date_of_birth)::int,28)) AS birthday_due FROM bluehaven_sbcs_students st JOIN bluehaven_sbcs_schools sc ON sc.id=st.school_id WHERE st.active=TRUE AND ($1='' OR st.school_id::text=$1) AND (make_date(EXTRACT(YEAR FROM CURRENT_DATE)::int + CASE WHEN make_date(EXTRACT(YEAR FROM CURRENT_DATE)::int,EXTRACT(MONTH FROM st.date_of_birth)::int,LEAST(EXTRACT(DAY FROM st.date_of_birth)::int,28)) < CURRENT_DATE THEN 1 ELSE 0 END,EXTRACT(MONTH FROM st.date_of_birth)::int,LEAST(EXTRACT(DAY FROM st.date_of_birth)::int,28)) <= CURRENT_DATE + ($2::int * INTERVAL '1 day'))`,[school_id,days]);
    let created=0;
@@ -153,12 +157,13 @@ export default async function handler(req:Req,res:Res){
    const id=clean(b.id,60),status=clean(b.status,24);
    if(status==='approved'&&!['admin','coordinator','reviewer'].includes(actor.role))return send(res,{error:'Your role cannot approve birthday messages.'},403);
    if(!['needs_approval','approved','cancelled','draft'].includes(status))return send(res,{error:'Unsupported queue status. Messages cannot be marked sent from this workspace.'},400);
-   const rows=await q.query('UPDATE bluehaven_sbcs_queue SET status=$2,approved_by=CASE WHEN $2=\'approved\' THEN \'BlueHaven admin session\' ELSE approved_by END,approved_at=CASE WHEN $2=\'approved\' THEN NOW() ELSE approved_at END,updated_at=NOW() WHERE id=$1 RETURNING id,status',[id,status]);
+   const rows=await q.query('UPDATE bluehaven_sbcs_queue SET status=$2,approved_by=CASE WHEN $2=\\'approved\\' THEN $3 ELSE approved_by END,approved_at=CASE WHEN $2=\'approved\' THEN NOW() ELSE approved_at END,updated_at=NOW() WHERE id=$1 RETURNING id,status',[id,status,actor.name]);
    if(!rows[0])return send(res,{error:'Queue item not found.'},404);
    await log(q,'queue_status_changed','Birthday greeting status changed to '+status,'queue',id,{status,delivery_locked:true});
    return send(res,{ok:true,status:rows[0].status,delivery_locked:true});
   }
   if(action==='toggle_student'){
+   if(actor.role==='reviewer')return send(res,{error:'Reviewer accounts cannot edit student records.'},403);
    const id=clean(b.id,60),active=b.active===true;const rows=await q.query('UPDATE bluehaven_sbcs_students SET active=$2,updated_at=NOW() WHERE id=$1 RETURNING id,active',[id,active]);if(!rows[0])return send(res,{error:'Student record not found.'},404);await log(q,'student_status_changed','Student record '+(active?'activated':'paused'),'student',id,{active});return send(res,{ok:true});
   }
   return send(res,{error:'Unknown staff operation.'},400);
