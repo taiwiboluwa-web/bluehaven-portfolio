@@ -92,7 +92,7 @@ export default async function handler(req:Req,res:Res){
   }
   if(action==='generate_queue'){
    const school_id=clean(b.school_id,60),days=Math.min(90,Math.max(1,Number(b.days)||30));
-   const rows=await q.query(`SELECT st.*,sc.name AS school_name,sc.id AS sid FROM bluehaven_sbcs_students st JOIN bluehaven_sbcs_schools sc ON sc.id=st.school_id WHERE st.active=TRUE AND ($1='' OR st.school_id::text=$1) AND (make_date(EXTRACT(YEAR FROM CURRENT_DATE)::int + CASE WHEN make_date(EXTRACT(YEAR FROM CURRENT_DATE)::int,EXTRACT(MONTH FROM st.date_of_birth)::int,LEAST(EXTRACT(DAY FROM st.date_of_birth)::int,28)) < CURRENT_DATE THEN 1 ELSE 0 END,EXTRACT(MONTH FROM st.date_of_birth)::int,LEAST(EXTRACT(DAY FROM st.date_of_birth)::int,28)) <= CURRENT_DATE + ($2::int * INTERVAL '1 day'))`,[school_id,days]);
+   const rows=await q.query(`SELECT st.*,sc.name AS school_name,sc.id AS sid,make_date(EXTRACT(YEAR FROM CURRENT_DATE)::int + CASE WHEN make_date(EXTRACT(YEAR FROM CURRENT_DATE)::int,EXTRACT(MONTH FROM st.date_of_birth)::int,LEAST(EXTRACT(DAY FROM st.date_of_birth)::int,28)) < CURRENT_DATE THEN 1 ELSE 0 END,EXTRACT(MONTH FROM st.date_of_birth)::int,LEAST(EXTRACT(DAY FROM st.date_of_birth)::int,28)) AS birthday_due FROM bluehaven_sbcs_students st JOIN bluehaven_sbcs_schools sc ON sc.id=st.school_id WHERE st.active=TRUE AND ($1='' OR st.school_id::text=$1) AND (make_date(EXTRACT(YEAR FROM CURRENT_DATE)::int + CASE WHEN make_date(EXTRACT(YEAR FROM CURRENT_DATE)::int,EXTRACT(MONTH FROM st.date_of_birth)::int,LEAST(EXTRACT(DAY FROM st.date_of_birth)::int,28)) < CURRENT_DATE THEN 1 ELSE 0 END,EXTRACT(MONTH FROM st.date_of_birth)::int,LEAST(EXTRACT(DAY FROM st.date_of_birth)::int,28)) <= CURRENT_DATE + ($2::int * INTERVAL '1 day'))`,[school_id,days]);
    let created=0;
    for(const st of rows){
     for(const channel of ['whatsapp','email']){
@@ -100,9 +100,7 @@ export default async function handler(req:Req,res:Res){
      if(!consent||!contact)continue;
      const templates=await q.query('SELECT * FROM bluehaven_sbcs_templates WHERE enabled=TRUE AND channel=$1 AND (school_id IS NULL OR school_id=$2) ORDER BY (school_id IS NOT NULL) DESC,created_at DESC LIMIT 1',[channel,st.school_id]);
      if(!templates[0])continue;
-     const birthdayOn=String(st.date_of_birth).slice(5,10);
-     const dueDate=await q.query("SELECT (CURRENT_DATE + ((($1::date - CURRENT_DATE + 365) % 365)))::date AS due",[('2000-'+birthdayOn)]);
-     const date=String(dueDate[0]?.due||'').slice(0,10);
+     const date=String(st.birthday_due).slice(0,10);
      const msg=renderTemplate(templates[0].body,st,{name:st.school_name});
      const result=await q.query("INSERT INTO bluehaven_sbcs_queue(id,school_id,student_id,birthday_on,channel,template_id,message_text,status) VALUES($1,$2,$3,$4,$5,$6,$7,'needs_approval') ON CONFLICT(student_id,birthday_on,channel) DO NOTHING RETURNING id",[randomUUID(),st.school_id,st.id,date,channel,templates[0].id,msg]);
      if(result.length){created++;await log(q,'queue_item_created','Birthday greeting prepared for review','queue',result[0].id,{channel,school_id:st.school_id});}
