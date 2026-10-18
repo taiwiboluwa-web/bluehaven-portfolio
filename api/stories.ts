@@ -53,9 +53,9 @@ async function handlePayment(req: Req, res: Res, query: URLSearchParams) {
   if (action === 'initialize') {
     if (req.method !== 'POST') return send(res, { error: 'Method not allowed' }, 405), true;
     const email = String(body(req).email || '').trim().toLowerCase();
-    if (!/^\\S+@\\S+\\.\\S+$/.test(email)) return send(res, { error: 'Enter a valid email address.' }, 400), true;
+    if (!/^\S+@\S+\.\S+$/.test(email)) return send(res, { error: 'Enter a valid email address.' }, 400), true;
 
-    const origin = String(req.headers?.origin || 'https://www.bluehavens.name.ng').replace(/\\/$/, '');
+    const origin = String(req.headers?.origin || 'https://www.bluehavens.name.ng').replace(/\/$/, '');
     const amount = items.reduce((sum, item) => sum + item.amount, 0);
     const data = await paystackRequest('/transaction/initialize', {
       method: 'POST',
