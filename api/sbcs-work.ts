@@ -1,5 +1,5 @@
 import { neon } from '@neondatabase/serverless';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, randomBytes, scryptSync, timingSafeEqual, createHmac } from 'node:crypto';
 import { isAuthenticated } from './_auth.js';
 
 type Req={method?:string;headers?:Record<string,string|undefined>;body?:unknown};
@@ -7,8 +7,24 @@ type Res={status:(n:number)=>Res;setHeader:(k:string,v:string)=>void;json:(v:unk
 const db=()=>{if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL is not configured');return neon(process.env.DATABASE_URL)};
 const bodyOf=(r:Req):Record<string,any>=>{if(r.body&&typeof r.body==='object')return r.body as Record<string,any>;if(typeof r.body==='string'){try{return JSON.parse(r.body)}catch{}}return {}};
 const clean=(v:unknown,n:number)=>String(v??'').trim().slice(0,n);
+const sessionSecret=()=>process.env.BLUEHAVEN_SESSION_SECRET||process.env.BLUEHAVEN_ADMIN_PASSWORD||process.env.ADMIN_PASSWORD||'';
+function cookie(req:Req,name:string){return String(req.headers?.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith(name+'='))?.slice(name.length+1)||''}
+function staffToken(id:string){const exp=Date.now()+12*60*60*1000;const payload=Buffer.from(JSON.stringify({id,exp})).toString('base64url');const sig=createHmac('sha256',sessionSecret()).update(payload).digest('base64url');return payload+'.'+sig}
+async function actorFor(req:Req,q:any){
+ if(isAuthenticated(req))return {id:'admin',name:'BlueHaven admin',email:'',role:'admin'};
+ const parts=cookie(req,'sbcs_staff_session').split('.'),secret=sessionSecret();
+ if(!secret||parts.length!==2)return null;
+ const expected=createHmac('sha256',secret).update(parts[0]).digest('base64url'),got=Buffer.from(parts[1]),want=Buffer.from(expected);
+ if(got.length!==want.length||!timingSafeEqual(got,want))return null;
+ let payload:any;try{payload=JSON.parse(Buffer.from(parts[0],'base64url').toString('utf8'))}catch{return null}
+ if(!payload.id||Number(payload.exp)<Date.now())return null;
+ const rows=await q.query('SELECT id,name,email,role,active FROM bluehaven_sbcs_staff WHERE id=$1',[payload.id]);
+ return rows[0]&&rows[0].active?rows[0]:null;
+}
+function verifyPassword(password:string,stored:string){const pair=stored.split(':'),salt=pair[0],hash=pair[1];if(!salt||!hash)return false;const actual=scryptSync(password,salt,64),expected=Buffer.from(hash,'hex');return actual.length===expected.length&&timingSafeEqual(actual,expected)}
 const send=(r:Res,d:unknown,s=200)=>{r.status(s);r.setHeader('content-type','application/json');r.setHeader('cache-control','no-store, no-cache, must-revalidate');r.setHeader('x-content-type-options','nosniff');r.json(d)};
 async function ensure(q:any){
+ await q.query("CREATE TABLE IF NOT EXISTS bluehaven_sbcs_staff(id UUID PRIMARY KEY,name VARCHAR(120) NOT NULL,email VARCHAR(254) NOT NULL UNIQUE,password_hash VARCHAR(200) NOT NULL,role VARCHAR(24) NOT NULL CHECK(role IN ('coordinator','operator','reviewer')),active BOOLEAN NOT NULL DEFAULT TRUE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
  await q.query(`CREATE TABLE IF NOT EXISTS bluehaven_sbcs_schools(
   id UUID PRIMARY KEY,name VARCHAR(180) NOT NULL,contact_name VARCHAR(120) NOT NULL DEFAULT '',
   email VARCHAR(254),phone VARCHAR(40),timezone VARCHAR(80) NOT NULL DEFAULT 'Africa/Lagos',
@@ -52,22 +68,47 @@ function renderTemplate(body:string,student:any,school:any){
  });
 }
 export default async function handler(req:Req,res:Res){
- if(!isAuthenticated(req))return send(res,{error:'Sign in through the BlueHaven admin before opening staff operations.'},401);
  if(req.method!=='GET'&&req.method!=='POST')return send(res,{error:'Method not allowed'},405);
  try{
   const q=db();await ensure(q);
+  if(req.method==='POST'){
+   const incoming=bodyOf(req);
+   if(clean(incoming.action,50)==='staff_login'){
+    const email=clean(incoming.email,254).toLowerCase(),password=String(incoming.password||'');
+    const users=await q.query('SELECT id,name,email,role,password_hash,active FROM bluehaven_sbcs_staff WHERE lower(email)=$1 LIMIT 1',[email]);
+    if(!users[0]||!users[0].active||!verifyPassword(password,users[0].password_hash))return send(res,{error:'Email or password is incorrect.'},401);
+    const u=users[0],user={id:u.id,name:u.name,email:u.email,role:u.role};
+    res.setHeader('set-cookie','sbcs_staff_session='+staffToken(user.id)+'; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=43200');
+    return send(res,{ok:true,actor:user});
+   }
+   if(clean(incoming.action,50)==='staff_logout'){
+    res.setHeader('set-cookie','sbcs_staff_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');return send(res,{ok:true});
+   }
+  }
+  const actor=await actorFor(req,q);
+  if(!actor)return send(res,{error:'Sign in with a staff account or BlueHaven admin session.'},401);
   if(req.method==='GET'){
-   const [schools,students,templates,queue,events,metrics]=await Promise.all([
+   const [schools,students,templates,queue,events,metrics,staff]=await Promise.all([
     q.query('SELECT * FROM bluehaven_sbcs_schools ORDER BY created_at DESC LIMIT 500'),
     q.query('SELECT st.id,st.school_id,sc.name AS school_name,st.student_code,st.first_name,st.last_name,st.class_name,st.date_of_birth,st.guardian_name,st.guardian_phone,st.guardian_email,st.whatsapp_consent,st.email_consent,st.active,st.created_at FROM bluehaven_sbcs_students st JOIN bluehaven_sbcs_schools sc ON sc.id=st.school_id ORDER BY st.first_name,st.last_name LIMIT 2000'),
     q.query('SELECT * FROM bluehaven_sbcs_templates ORDER BY created_at DESC LIMIT 500'),
     q.query('SELECT qu.*,st.first_name,st.last_name,st.class_name,st.guardian_name,st.guardian_phone,st.guardian_email,sc.name AS school_name FROM bluehaven_sbcs_queue qu JOIN bluehaven_sbcs_students st ON st.id=qu.student_id JOIN bluehaven_sbcs_schools sc ON sc.id=qu.school_id ORDER BY qu.birthday_on ASC,qu.created_at DESC LIMIT 1000'),
     q.query('SELECT * FROM bluehaven_sbcs_work_events ORDER BY created_at DESC LIMIT 100'),
-    q.query("SELECT (SELECT COUNT(*)::int FROM bluehaven_sbcs_schools) AS schools,(SELECT COUNT(*)::int FROM bluehaven_sbcs_students WHERE active) AS active_students,(SELECT COUNT(*)::int FROM bluehaven_sbcs_templates WHERE enabled) AS active_templates,(SELECT COUNT(*)::int FROM bluehaven_sbcs_queue WHERE status IN ('draft','needs_approval')) AS awaiting_review,(SELECT COUNT(*)::int FROM bluehaven_sbcs_queue WHERE status='approved') AS approved_not_sent")
+    q.query("SELECT (SELECT COUNT(*)::int FROM bluehaven_sbcs_schools) AS schools,(SELECT COUNT(*)::int FROM bluehaven_sbcs_students WHERE active) AS active_students,(SELECT COUNT(*)::int FROM bluehaven_sbcs_templates WHERE enabled) AS active_templates,(SELECT COUNT(*)::int FROM bluehaven_sbcs_queue WHERE status IN ('draft','needs_approval')) AS awaiting_review,(SELECT COUNT(*)::int FROM bluehaven_sbcs_queue WHERE status='approved') AS approved_not_sent"),
+    actor.role==='admin'?q.query('SELECT id,name,email,role,active,created_at FROM bluehaven_sbcs_staff ORDER BY created_at DESC'):Promise.resolve([])
    ]);
-   return send(res,{schools,students,templates,queue,events,metrics:metrics[0]});
+   return send(res,{actor,schools,students,templates,queue,events,metrics:metrics[0],staff});
   }
   const b=bodyOf(req),action=clean(b.action,50);
+  if(action==='create_staff'){
+   if(actor.role!=='admin')return send(res,{error:'Only the BlueHaven admin can create staff accounts.'},403);
+   const name=clean(b.name,120),email=clean(b.email,254).toLowerCase(),password=String(b.password||''),role=clean(b.role,24);
+   if(name.length<2||!email||!['coordinator','operator','reviewer'].includes(role)||password.length<12)return send(res,{error:'Name, valid email, a staff role and a password of at least 12 characters are required.'},400);
+   if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))return send(res,{error:'Enter a valid staff email.'},400);
+   const salt=randomBytes(16).toString('hex'),hash=scryptSync(password,salt,64).toString('hex'),id=randomUUID();
+   try{await q.query('INSERT INTO bluehaven_sbcs_staff(id,name,email,password_hash,role) VALUES($1,$2,$3,$4,$5)',[id,name,email,salt+':'+hash,role])}catch{return send(res,{error:'Could not create staff account. That email may already be registered.'},409)}
+   await log(q,'staff_created','Staff account created: '+name,'staff',id,{role});return send(res,{ok:true,id});
+  }
   if(action==='create_school'){
    const name=clean(b.name,180),contact=clean(b.contact_name,120),email=clean(b.email,254),phone=clean(b.phone,40);
    if(name.length<2)return send(res,{error:'Enter a school name.'},400);
@@ -110,6 +151,7 @@ export default async function handler(req:Req,res:Res){
   }
   if(action==='update_queue_status'){
    const id=clean(b.id,60),status=clean(b.status,24);
+   if(status==='approved'&&!['admin','coordinator','reviewer'].includes(actor.role))return send(res,{error:'Your role cannot approve birthday messages.'},403);
    if(!['needs_approval','approved','cancelled','draft'].includes(status))return send(res,{error:'Unsupported queue status. Messages cannot be marked sent from this workspace.'},400);
    const rows=await q.query('UPDATE bluehaven_sbcs_queue SET status=$2,approved_by=CASE WHEN $2=\'approved\' THEN \'BlueHaven admin session\' ELSE approved_by END,approved_at=CASE WHEN $2=\'approved\' THEN NOW() ELSE approved_at END,updated_at=NOW() WHERE id=$1 RETURNING id,status',[id,status]);
    if(!rows[0])return send(res,{error:'Queue item not found.'},404);
