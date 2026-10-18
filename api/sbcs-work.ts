@@ -58,8 +58,8 @@ async function ensure(q:any){
   actor VARCHAR(160) NOT NULL DEFAULT 'admin-session',entity_type VARCHAR(40),entity_id UUID,
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
 }
-async function log(q:any,type:string,summary:string,entity_type:string|null=null,entity_id:string|null=null,metadata:Record<string,unknown>={}) {
- await q.query('INSERT INTO bluehaven_sbcs_work_events(id,event_type,summary,entity_type,entity_id,metadata) VALUES($1,$2,$3,$4,$5,$6::jsonb)',[randomUUID(),type,summary,entity_type,entity_id,JSON.stringify(metadata)]);
+async function log(q:any,type:string,summary:string,entity_type:string|null=null,entity_id:string|null=null,metadata:Record<string,unknown>={},actorName='admin-session') {
+ await q.query('INSERT INTO bluehaven_sbcs_work_events(id,event_type,summary,actor,entity_type,entity_id,metadata) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb)',[randomUUID(),type,summary,actorName,entity_type,entity_id,JSON.stringify(metadata)]);
 }
 function renderTemplate(body:string,student:any,school:any){
  return body.replace(/\{\{\s*(student_first_name|student_name|class_name|school_name|guardian_name)\s*\}\}/g,(_m,key)=>{
@@ -97,7 +97,8 @@ export default async function handler(req:Req,res:Res){
     q.query("SELECT (SELECT COUNT(*)::int FROM bluehaven_sbcs_schools) AS schools,(SELECT COUNT(*)::int FROM bluehaven_sbcs_students WHERE active) AS active_students,(SELECT COUNT(*)::int FROM bluehaven_sbcs_templates WHERE enabled) AS active_templates,(SELECT COUNT(*)::int FROM bluehaven_sbcs_queue WHERE status IN ('draft','needs_approval')) AS awaiting_review,(SELECT COUNT(*)::int FROM bluehaven_sbcs_queue WHERE status='approved') AS approved_not_sent"),
     actor.role==='admin'?q.query('SELECT id,name,email,role,active,created_at FROM bluehaven_sbcs_staff ORDER BY created_at DESC'):Promise.resolve([])
    ]);
-   return send(res,{actor,schools,students,templates,queue,events,metrics:metrics[0],staff});
+   const visibleQueue=actor.role==='reviewer'?queue.map((item:any)=>({...item,guardian_phone:null,guardian_email:null})):queue;
+   return send(res,{actor,schools,students:actor.role==='reviewer'?[]:students,templates,queue:visibleQueue,events,metrics:metrics[0],staff});
   }
   const b=bodyOf(req),action=clean(b.action,50);
   if(action==='create_staff'){
@@ -107,7 +108,7 @@ export default async function handler(req:Req,res:Res){
    if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))return send(res,{error:'Enter a valid staff email.'},400);
    const salt=randomBytes(16).toString('hex'),hash=scryptSync(password,salt,64).toString('hex'),id=randomUUID();
    try{await q.query('INSERT INTO bluehaven_sbcs_staff(id,name,email,password_hash,role) VALUES($1,$2,$3,$4,$5)',[id,name,email,salt+':'+hash,role])}catch{return send(res,{error:'Could not create staff account. That email may already be registered.'},409)}
-   await log(q,'staff_created','Staff account created: '+name,'staff',id,{role});return send(res,{ok:true,id});
+   await log(q,'staff_created','Staff account created: '+name,'staff',id,{role},actor.name);return send(res,{ok:true,id});
   }
   if(action==='create_school'){
    if(actor.role==='reviewer')return send(res,{error:'Reviewer accounts cannot edit school workspaces.'},403);
@@ -115,7 +116,7 @@ export default async function handler(req:Req,res:Res){
    if(name.length<2)return send(res,{error:'Enter a school name.'},400);
    if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return send(res,{error:'Enter a valid school email.'},400);
    const id=randomUUID();await q.query('INSERT INTO bluehaven_sbcs_schools(id,name,contact_name,email,phone) VALUES($1,$2,$3,$4,$5)',[id,name,contact,email||null,phone||null]);
-   await log(q,'school_created','School workspace created: '+name,'school',id);return send(res,{ok:true,id},201);
+   await log(q,'school_created','School workspace created: '+name,'school',id,{},actor.name);return send(res,{ok:true,id},201);
   }
   if(action==='create_student'){
    if(actor.role==='reviewer')return send(res,{error:'Reviewer accounts cannot edit student records.'},403);
@@ -124,7 +125,7 @@ export default async function handler(req:Req,res:Res){
    const guardian_email=clean(b.guardian_email,254);if(guardian_email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guardian_email))return send(res,{error:'Guardian email is invalid.'},400);
    const exists=await q.query('SELECT id FROM bluehaven_sbcs_schools WHERE id=$1',[school_id]);if(!exists[0])return send(res,{error:'Choose a valid school.'},400);
    const id=randomUUID();await q.query('INSERT INTO bluehaven_sbcs_students(id,school_id,student_code,first_name,last_name,class_name,date_of_birth,guardian_name,guardian_phone,guardian_email,whatsapp_consent,email_consent) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',[id,school_id,clean(b.student_code,80)||null,first_name,last_name,clean(b.class_name,100),dob,clean(b.guardian_name,160),clean(b.guardian_phone,40)||null,guardian_email||null,b.whatsapp_consent===true,b.email_consent===true]);
-   await log(q,'student_created','Student birthday record added','student',id,{school_id});return send(res,{ok:true,id},201);
+   await log(q,'student_created','Student birthday record added','student',id,{school_id},actor.name);return send(res,{ok:true,id},201);
   }
   if(action==='create_template'){
    if(actor.role==='reviewer')return send(res,{error:'Reviewer accounts cannot edit templates.'},403);
@@ -132,7 +133,7 @@ export default async function handler(req:Req,res:Res){
    if(name.length<2||!['whatsapp','email'].includes(channel)||body.length<3)return send(res,{error:'Template name, channel and message body are required.'},400);
    if(!body.includes('{{student_first_name}}')&&!body.includes('{{student_name}}'))return send(res,{error:'Add a student name placeholder to personalise the greeting.'},400);
    const id=randomUUID();await q.query('INSERT INTO bluehaven_sbcs_templates(id,school_id,name,channel,subject,body) VALUES($1,$2,$3,$4,$5,$6)',[id,school_id||null,name,channel,clean(b.subject,200),body]);
-   await log(q,'template_created','Message template created: '+name,'template',id,{channel});return send(res,{ok:true,id},201);
+   await log(q,'template_created','Message template created: '+name,'template',id,{channel},actor.name);return send(res,{ok:true,id},201);
   }
   if(action==='generate_queue'){
    if(actor.role==='reviewer')return send(res,{error:'Reviewer accounts cannot generate queue items.'},403);
@@ -148,7 +149,7 @@ export default async function handler(req:Req,res:Res){
      const date=String(st.birthday_due).slice(0,10);
      const msg=renderTemplate(templates[0].body,st,{name:st.school_name});
      const result=await q.query("INSERT INTO bluehaven_sbcs_queue(id,school_id,student_id,birthday_on,channel,template_id,message_text,status) VALUES($1,$2,$3,$4,$5,$6,$7,'needs_approval') ON CONFLICT(student_id,birthday_on,channel) DO NOTHING RETURNING id",[randomUUID(),st.school_id,st.id,date,channel,templates[0].id,msg]);
-     if(result.length){created++;await log(q,'queue_item_created','Birthday greeting prepared for review','queue',result[0].id,{channel,school_id:st.school_id});}
+     if(result.length){created++;await log(q,'queue_item_created','Birthday greeting prepared for review','queue',result[0].id,{channel,school_id:st.school_id},actor.name);}
     }
    }
    return send(res,{ok:true,created,scanned:rows.length});
@@ -159,12 +160,12 @@ export default async function handler(req:Req,res:Res){
    if(!['needs_approval','approved','cancelled','draft'].includes(status))return send(res,{error:'Unsupported queue status. Messages cannot be marked sent from this workspace.'},400);
    const rows=await q.query('UPDATE bluehaven_sbcs_queue SET status=$2,approved_by=CASE WHEN $2=\\'approved\\' THEN $3 ELSE approved_by END,approved_at=CASE WHEN $2=\'approved\' THEN NOW() ELSE approved_at END,updated_at=NOW() WHERE id=$1 RETURNING id,status',[id,status,actor.name]);
    if(!rows[0])return send(res,{error:'Queue item not found.'},404);
-   await log(q,'queue_status_changed','Birthday greeting status changed to '+status,'queue',id,{status,delivery_locked:true});
+   await log(q,'queue_status_changed','Birthday greeting status changed to '+status,'queue',id,{status,delivery_locked:true},actor.name);
    return send(res,{ok:true,status:rows[0].status,delivery_locked:true});
   }
   if(action==='toggle_student'){
    if(actor.role==='reviewer')return send(res,{error:'Reviewer accounts cannot edit student records.'},403);
-   const id=clean(b.id,60),active=b.active===true;const rows=await q.query('UPDATE bluehaven_sbcs_students SET active=$2,updated_at=NOW() WHERE id=$1 RETURNING id,active',[id,active]);if(!rows[0])return send(res,{error:'Student record not found.'},404);await log(q,'student_status_changed','Student record '+(active?'activated':'paused'),'student',id,{active});return send(res,{ok:true});
+   const id=clean(b.id,60),active=b.active===true;const rows=await q.query('UPDATE bluehaven_sbcs_students SET active=$2,updated_at=NOW() WHERE id=$1 RETURNING id,active',[id,active]);if(!rows[0])return send(res,{error:'Student record not found.'},404);await log(q,'student_status_changed','Student record '+(active?'activated':'paused'),'student',id,{active},actor.name);return send(res,{ok:true});
   }
   return send(res,{error:'Unknown staff operation.'},400);
  }catch(e){console.error('SBCS staff API error:',e);return send(res,{error:e instanceof Error&&e.message==='DATABASE_URL is not configured'?'DATABASE_URL is not configured in Vercel.':'SBCS staff backend is temporarily unavailable.'},500)}
