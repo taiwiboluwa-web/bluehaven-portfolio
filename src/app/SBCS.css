@@ -405,3 +405,5 @@
   .sbcs-page .sbcs-safety { margin-inline: 16px; padding: 18px; }
   .sbcs-page .sbcs-preview { padding: 12px; }
 }
+/* Keep the complete BlueHaven Studios wordmark legible in the SBCS header. */
+.sbcs-page .sbcs-wordmark-studios { color: var(--sbcs-text, #d4d4d8); letter-spacing: -.8px; }
