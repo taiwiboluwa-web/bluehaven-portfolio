@@ -74,7 +74,7 @@ export default function SBCS() {
     <main className="sbcs-page">
       <header className="sbcs-nav">
         <a className="sbcs-back" href="/services"><ArrowLeft size={16} /> All services</a>
-        <a className="sbcs-wordmark" href="/" aria-label="BlueHaven Studios home"><span>BLUE</span>HAVEN<span className="sbcs-dot">.</span></a>
+        <a className="sbcs-wordmark" href="/" aria-label="BlueHaven Studios home"><span>BLUE</span>HAVEN<span className="sbcs-wordmark-studios"> STUDIOS</span><span className="sbcs-dot">.</span></a>
         <a className="sbcs-nav-cta" href="#sbcs-enquire">Talk to us <ArrowRight size={15} /></a>
       </header>
 
