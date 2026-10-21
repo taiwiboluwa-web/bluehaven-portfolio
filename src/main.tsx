@@ -10,8 +10,7 @@ const root = createRoot(document.getElementById('root')!);
 const path = window.location.pathname;
 const isBlogAdmin = path === '/admin/blog' || path === '/admin/blog/';
 const isSBCSAdmin = path === '/admin/sbcs' || path === '/admin/sbcs/';
-const isHarveyAdmin = path === '/admin/harvey' || path === '/admin/harvey/';
-const isAdmin = (path === '/admin' || path.startsWith('/admin/')) && !isBlogAdmin && !isSBCSAdmin && !isHarveyAdmin;
+const isAdmin = (path === '/admin' || path.startsWith('/admin/')) && !isBlogAdmin && !isSBCSAdmin;
 const isWriter = path === '/stories/write' || path === '/stories/account';
 const isResourceShelf = path === '/resources' || path === '/resources/';
 const isResourceCheckout = path === '/resources/checkout' || path === '/resources/checkout/';
@@ -19,9 +18,7 @@ const hasLegacyResourceSelection = isResourceCheckout && new URLSearchParams(win
 const isStories = (path === '/stories' || path.startsWith('/stories/')) && !isWriter;
 const isSBCS = path === '/services/sbcs' || path === '/services/sbcs/';
 
-if (isHarveyAdmin) {
-  import('./app/HarveyAdmin.tsx').then(({ default: HarveyAdmin }) => root.render(<HarveyAdmin />));
-} else if (isSBCSAdmin) {
+if (isSBCSAdmin) {
   import('./app/SBCSAdmin.tsx').then(({ default: SBCSAdmin }) => root.render(<SBCSAdmin />));
 } else if (isBlogAdmin) {
   import('./app/BlogAdmin.tsx').then(({ default: BlogAdmin }) => root.render(<BlogAdmin />));
