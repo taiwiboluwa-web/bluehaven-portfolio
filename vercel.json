@@ -39,6 +39,14 @@
       "destination": "/admin.html"
     },
     {
+      "source": "/admin/harvey",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/admin/harvey/",
+      "destination": "/admin.html"
+    },
+    {
       "source": "/resources",
       "destination": "/index.html"
     },
