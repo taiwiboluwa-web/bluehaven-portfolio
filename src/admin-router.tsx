@@ -3,10 +3,13 @@
 const path = window.location.pathname;
 const isSBCSStaff = path === '/admin/sbcs/work' || path === '/admin/sbcs/work/';
 const isSBCSAdmin = path === '/admin/sbcs' || path === '/admin/sbcs/';
+const isHarveyAdmin = path === '/admin/harvey' || path === '/admin/harvey/';
 if (isSBCSStaff) {
   import('./sbcs-staff-entry.tsx');
 } else if (isSBCSAdmin) {
   import('./sbcs-admin-entry.tsx');
+} else if (isHarveyAdmin) {
+  import('./harvey-admin-entry.tsx');
 } else {
   import('./admin.tsx');
 }
