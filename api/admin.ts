@@ -5,6 +5,7 @@ const secret = () => process.env.BLUEHAVEN_ADMIN_PASSWORD || process.env.ADMIN_P
 
 type Req = {
   method?: string;
+  url?: string;
   headers?: Record<string, string | undefined>;
   body?: unknown;
 };
@@ -21,7 +22,7 @@ function header(req: Req, name: string) {
 }
 
 function authenticated(req: Req) {
-  const raw = header(req, 'cookie').match(/(?:^|;\s*)bluehaven_admin=([^;]+)/)?.[1];
+  const raw = header(req, 'cookie').match(/(?:^|;\\s*)bluehaven_admin=([^;]+)/)?.[1];
   if (!raw || !secret()) return false;
   const parts = raw.split('.');
   if (parts.length !== 3) return false;
@@ -47,8 +48,67 @@ function send(res: Res, data: unknown, status = 200, extra: Record<string, strin
   res.json(data);
 }
 
-export default function handler(req: Req, res: Res) {
+function harveyAllowed(path: string, method: string) {
+  if (method === 'GET') {
+    return new Set([
+      '/api/harvey/status', '/api/stats', '/api/outbox', '/api/activity',
+    ]).has(path);
+  }
+  if (method !== 'POST') return false;
+  return /^\/api\/outbox\/[A-Za-z0-9_-]+\/(approve|reject)$/.test(path) ||
+    /^\/api\/sending\/(pause|resume)$/.test(path);
+}
+
+async function proxyHarvey(req: Req, res: Res, path: string, method: string, body?: unknown) {
+  const base = (process.env.HARVEY_SERVICE_URL || '').trim();
+  const token = (process.env.HARVEY_DASHBOARD_TOKEN || '').trim();
+  if (!base || !token) {
+    return send(res, { error: 'Harvey is not connected yet. Configure HARVEY_SERVICE_URL and HARVEY_DASHBOARD_TOKEN in Vercel after deploying the protected Harvey service.' }, 503);
+  }
+  if (!harveyAllowed(path, method)) return send(res, { error: 'Harvey endpoint is not allowed.' }, 400);
+
+  let target: URL;
   try {
+    const parsedBase = new URL(base);
+    if (parsedBase.protocol !== 'https:' && parsedBase.hostname !== 'localhost' && parsedBase.hostname !== '127.0.0.1') {
+      return send(res, { error: 'HARVEY_SERVICE_URL must use HTTPS outside local development.' }, 503);
+    }
+    if (parsedBase.username || parsedBase.password) return send(res, { error: 'HARVEY_SERVICE_URL must not contain embedded credentials.' }, 503);
+    target = new URL(path, parsedBase.origin);
+  } catch {
+    return send(res, { error: 'HARVEY_SERVICE_URL is invalid.' }, 503);
+  }
+
+  try {
+    const response = await fetch(target, {
+      method,
+      headers: {
+        authorization: `Bearer ${token}`,
+        ...(method === 'POST' ? { 'content-type': 'application/json' } : {}),
+      },
+      ...(method === 'POST' ? { body: JSON.stringify(body ?? {}) } : {}),
+      signal: AbortSignal.timeout(8000),
+      redirect: 'error',
+    });
+    const raw = await response.text();
+    let payload: unknown;
+    try { payload = JSON.parse(raw); } catch { payload = { error: raw.slice(0, 500) || 'Harvey returned an empty response.' }; }
+    return send(res, payload, response.status);
+  } catch (error) {
+    console.error('Harvey proxy error:', error);
+    return send(res, { error: 'Could not reach Harvey. Check the service URL, reverse proxy and service health.' }, 502);
+  }
+}
+
+export default async function handler(req: Req, res: Res) {
+  try {
+    const query = new URL(req.url || '/', 'https://bluehaven.internal').searchParams;
+    const harveyPath = query.get('harvey');
+    if (req.method === 'GET' && harveyPath !== null) {
+      if (!authenticated(req)) return send(res, { error: 'Admin authentication required.' }, 401);
+      return await proxyHarvey(req, res, harveyPath, 'GET');
+    }
+
     if (req.method === 'GET') {
       return send(res, { authenticated: authenticated(req), configured: Boolean(secret()) });
     }
@@ -60,6 +120,13 @@ export default function handler(req: Req, res: Res) {
       return send(res, { ok: true }, 200, {
         'set-cookie': `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
       });
+    }
+
+    if (body.action === 'harvey_proxy') {
+      if (!authenticated(req)) return send(res, { error: 'Admin authentication required.' }, 401);
+      const path = String(body.path || '');
+      const method = String(body.method || 'POST').toUpperCase();
+      return await proxyHarvey(req, res, path, method, body.payload);
     }
 
     if (!secret()) {
