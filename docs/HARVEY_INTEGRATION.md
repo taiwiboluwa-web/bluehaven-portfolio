@@ -11,7 +11,19 @@ Harvey is a long-running Python service with a local SQLite database. It must ru
 - `HARVEY_SERVICE_URL`: HTTPS base URL for the Harvey service/reverse proxy.
 - `HARVEY_DASHBOARD_TOKEN`: the token from Harvey's protected `data/dashboard-token` file. Store it only in Vercel environment variables; never commit it or expose it to browser code.
 
-The upstream must be configured to support trusted reverse-proxy requests and route to Harvey's local dashboard API. Harvey currently validates the Host header as loopback, so do not point this proxy at a generic public dashboard URL without a trusted reverse-proxy configuration that preserves that security model. Do not make the dashboard token public or place it in a URL.
+The upstream must be configured to support trusted reverse-proxy requests and route to Harvey's local dashboard API. Harvey currently validates the Host header as loopback, so do not point this proxy at a generic public dashboard URL without a trusted reverse-proxy configuration that preserves that security model. Do not make the dashboard token public or place it in a URL. A minimal Caddy reverse proxy can expose only the API paths while rewriting the upstream Host header:
+
+```caddyfile
+harvey-api.example.com {
+  @api path /api/*
+  reverse_proxy @api 127.0.0.1:5555 {
+    header_up Host 127.0.0.1:5555
+  }
+  respond "Not found" 404
+}
+`
+
+Replace the example hostname with a domain you control and keep the Harvey process bound to loopback. The proxy should not forward the dashboard token from browsers; the BlueHaven Vercel server-side proxy adds it.
 
 ## Safety defaults
 
