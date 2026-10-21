@@ -34,7 +34,7 @@ export default function HarveyAdmin() {
         if (!r.ok) throw new Error(body.error || 'Harvey service is not reachable.');
         return body;
       }));
-      setData({ status: parsed[0], stats: parsed[1], outbox: Array.isArray(parsed[2]) ? parsed[2] : parsed[2].items || parsed[2].outbox || [], activity: Array.isArray(parsed[3]) ? parsed[3] : parsed[3].items || parsed[3].activity || [] });
+      setData({ status: parsed[0], stats: parsed[1], outbox: Array.isArray(parsed[2]) ? parsed[2] : parsed[2].pending || parsed[2].items || parsed[2].outbox || [], activity: Array.isArray(parsed[3]) ? parsed[3] : parsed[3].items || parsed[3].activity || [] });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not connect to Harvey.');
     } finally { setLoading(false); }
@@ -68,7 +68,8 @@ export default function HarveyAdmin() {
 
   const stat = (key: string, fallback = '—') => {
     const stats = data.stats || {};
-    const value = stats[key];
+    const raw = stats[key];
+    const value = raw && typeof raw === 'object' && 'total' in raw ? (raw as Item).total : raw;
     return value === undefined || value === null ? fallback : String(value);
   };
   const outbox = data.outbox || [];
@@ -101,8 +102,8 @@ export default function HarveyAdmin() {
       {notice && <div role="status" className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-3 text-sm text-emerald-200">{notice}</div>}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <article className={panel}><div className="flex items-center justify-between text-sm text-zinc-400">Agent status <Activity size={17}/></div><p className="mt-4 text-2xl font-semibold">{loading ? 'Checking…' : isRunning ? 'Running' : 'Not running'}</p><p className="mt-1 text-xs text-zinc-500">{status.pid ? `Process ID ${status.pid}` : 'Agent heartbeat status'}</p><div className="mt-4 flex gap-2"><button className={btn} onClick={() => void act('pause')} disabled={Boolean(busyId)}>Pause sending</button><button className={btn} onClick={() => void act('resume')} disabled={Boolean(busyId)}>Resume</button></div></article>
-        <article className={panel}><div className="flex items-center justify-between text-sm text-zinc-400">Companies <Users size={17}/></div><p className="mt-4 text-3xl font-semibold">{stat('companies')}</p><p className="mt-1 text-xs text-zinc-500">Businesses in the prospect pipeline</p></article>
-        <article className={panel}><div className="flex items-center justify-between text-sm text-zinc-400">Contacts / prospects <Mail size={17}/></div><p className="mt-4 text-3xl font-semibold">{stat('prospects')}</p><p className="mt-1 text-xs text-zinc-500">Potential contacts discovered</p></article>
+        <article className={panel}><div className="flex items-center justify-between text-sm text-zinc-400">Companies <Users size={17}/></div><p className="mt-4 text-3xl font-semibold">{stat('companies')}</p><p className="mt-1 text-xs text-zinc-500">Prospects discovered</p></article>
+        <article className={panel}><div className="flex items-center justify-between text-sm text-zinc-400">Campaigns <Mail size={17}/></div><p className="mt-4 text-3xl font-semibold">{stat('campaigns')}</p><p className="mt-1 text-xs text-zinc-500">Outreach sequences tracked</p></article>
         <article className={panel}><div className="flex items-center justify-between text-sm text-zinc-400">Approval queue <ShieldCheck size={17}/></div><p className="mt-4 text-3xl font-semibold">{outbox.length}</p><p className="mt-1 text-xs text-zinc-500">Drafts waiting for your review</p></article>
       </section>
       <section className="grid gap-6 xl:grid-cols-[1.3fr_.7fr]">
