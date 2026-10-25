@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client';
+import OpeningIntro from './app/components/OpeningIntro.tsx';
 import RouteView from './app/RouteView.tsx';
 import NavigationEnhancement from './app/NavigationEnhancement.tsx';
 import { installPortfolioGalleryRuntime } from './lib/portfolioGalleryRuntime.ts';
@@ -40,5 +41,5 @@ if (isSBCSAdmin) {
 } else if (isStories) {
   import('./app/Stories.tsx').then(({ default: Stories }) => root.render(<Stories />));
 } else {
-  root.render(<div id="main-content"><RouteView /><NavigationEnhancement /></div>);
+  root.render(<div id="main-content"><RouteView /><NavigationEnhancement />{path === '/' && <OpeningIntro />}</div>);
 }
