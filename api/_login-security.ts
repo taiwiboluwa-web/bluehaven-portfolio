@@ -5,15 +5,12 @@ type RequestLike = {
   headers?: Record<string, string | string[] | undefined>;
   socket?: { remoteAddress?: string };
 };
-
 type Sql = ReturnType<typeof neon>;
 
-const WINDOW_MINUTES = 15;
 const ACCOUNT_FAILURE_LIMIT = 5;
 const IP_ATTEMPT_LIMIT = 20;
 const LOCKOUT_MINUTES = 15;
 const ACCOUNT_KEY = 'account:bluehaven-admin';
-
 let schemaReady: Promise<void> | undefined;
 
 function header(req: RequestLike, name: string): string {
@@ -21,19 +18,12 @@ function header(req: RequestLike, name: string): string {
   return Array.isArray(value) ? value.join(',') : String(value || '');
 }
 
-/**
- * Vercel supplies the client address in x-real-ip. If unavailable, use the
- * right-most forwarded address (the value appended by the nearest proxy),
- * never the left-most client-controlled entry.
- */
+/** Prefer Vercel's normalized client IP; fall back to the right-most forwarded address. */
 export function clientIpFromRequest(req: RequestLike): string {
   const realIp = header(req, 'x-real-ip').trim();
   if (realIp) return realIp;
-  const forwarded = header(req, 'x-forwarded-for')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean);
-  return forwarded.at(-1) || req.socket?.remoteAddress || 'unknown';
+  const forwarded = header(req, 'x-forwarded-for').split(',').map((value) => value.trim()).filter(Boolean);
+  return forwarded[forwarded.length - 1] || req.socket?.remoteAddress || 'unknown';
 }
 
 export function safePasswordMatch(candidate: string, expected: string): boolean {
@@ -79,7 +69,7 @@ function secondsUntil(value: unknown): number {
 
 async function activeBlock(sql: Sql, key: string): Promise<number> {
   const rows = await sql`SELECT blocked_until FROM bluehaven_login_guards
-    WHERE guard_key = ${key} AND blocked_until > NOW() LIMIT 1`;
+    WHERE guard_key = \${key} AND blocked_until > NOW() LIMIT 1`;
   return rows.length ? secondsUntil(rows[0].blocked_until) : 0;
 }
 
@@ -87,7 +77,7 @@ async function incrementGuard(sql: Sql, key: string, threshold: number): Promise
   const rows = await sql`
     INSERT INTO bluehaven_login_guards
       (guard_key, failures, window_started_at, blocked_until, updated_at)
-    VALUES (${key}, 1, NOW(), NULL, NOW())
+    VALUES (\${key}, 1, NOW(), NULL, NOW())
     ON CONFLICT (guard_key) DO UPDATE SET
       failures = CASE
         WHEN bluehaven_login_guards.window_started_at < NOW() - INTERVAL '15 minutes' THEN 1
@@ -99,7 +89,7 @@ async function incrementGuard(sql: Sql, key: string, threshold: number): Promise
       END,
       blocked_until = CASE
         WHEN bluehaven_login_guards.window_started_at < NOW() - INTERVAL '15 minutes' THEN NULL
-        WHEN bluehaven_login_guards.failures + 1 >= ${threshold} THEN NOW() + INTERVAL '15 minutes'
+        WHEN bluehaven_login_guards.failures + 1 >= \${threshold} THEN NOW() + INTERVAL '15 minutes'
         ELSE bluehaven_login_guards.blocked_until
       END,
       updated_at = NOW()
@@ -110,26 +100,19 @@ async function incrementGuard(sql: Sql, key: string, threshold: number): Promise
   return Number(row?.failures || 0) >= threshold ? LOCKOUT_MINUTES * 60 : 0;
 }
 
-/**
- * Applies a shared account lockout and an independent per-IP request limit.
- * State is stored in Neon so it is consistent across Vercel serverless instances.
- */
+/** Shared Neon-backed account lockout plus an independent per-IP request limit. */
 export async function checkLoginAllowed(req: RequestLike): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
   const sql = await getDatabase();
-  const accountKey = fingerprint(ACCOUNT_KEY);
-  const accountBlock = await activeBlock(sql, accountKey);
+  const accountBlock = await activeBlock(sql, fingerprint(ACCOUNT_KEY));
   if (accountBlock) return { allowed: false, retryAfterSeconds: accountBlock };
-
-  const ipKey = fingerprint(`ip:${clientIpFromRequest(req)}`);
+  const ipKey = fingerprint('ip:' + clientIpFromRequest(req));
   const ipBlock = await activeBlock(sql, ipKey);
   if (ipBlock) return { allowed: false, retryAfterSeconds: ipBlock };
-
   const ipRetry = await incrementGuard(sql, ipKey, IP_ATTEMPT_LIMIT);
   if (ipRetry) return { allowed: false, retryAfterSeconds: ipRetry };
   return { allowed: true, retryAfterSeconds: 0 };
 }
 
-/** Returns a retry delay when this failure triggers the account lockout. */
 export async function recordLoginFailure(): Promise<number> {
   const sql = await getDatabase();
   return incrementGuard(sql, fingerprint(ACCOUNT_KEY), ACCOUNT_FAILURE_LIMIT);
@@ -137,5 +120,5 @@ export async function recordLoginFailure(): Promise<number> {
 
 export async function clearLoginFailures(): Promise<void> {
   const sql = await getDatabase();
-  await sql`DELETE FROM bluehaven_login_guards WHERE guard_key = ${fingerprint(ACCOUNT_KEY)}`;
+  await sql`DELETE FROM bluehaven_login_guards WHERE guard_key = \${fingerprint(ACCOUNT_KEY)}`;
 }
