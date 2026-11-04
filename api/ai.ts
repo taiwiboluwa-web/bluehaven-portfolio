@@ -100,11 +100,12 @@ export default async function handler(req: Req, res: Res) {
     if (req.method === 'GET') {
       const settings = await sql`SELECT skill_id,enabled,updated_at FROM bluehaven_ai_skill_settings` as any[];
       const activity = await sql`SELECT id,skill_id,activity_type,status,task,result,model,duration_ms,error,created_at FROM bluehaven_ai_activity ORDER BY created_at DESC LIMIT 50` as any[];
+      const reports = await sql`SELECT report_date,total_runs,successful_runs,failed_runs,chatbot_requests FROM bluehaven_ai_daily_reports ORDER BY report_date DESC LIMIT 14` as any[];
       const enabled = new Map(settings.map((s:any)=>[s.skill_id,s.enabled]));
       return send(res,{
         configured:{database:true,aiGateway:Boolean(process.env.AI_GATEWAY_API_KEY),model:process.env.BLUEHAVEN_AI_MODEL||'openai/gpt-4o-mini'},
         skills:SKILLS.map(([id,name,description])=>({id,name,description,enabled:enabled.get(id)!==false})),
-        activity
+        activity,reports
       });
     }
     if (req.method !== 'POST') return send(res,{error:'Method not allowed'},405);
