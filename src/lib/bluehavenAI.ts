@@ -32,7 +32,7 @@ async function askModel(messages:Array<{role:string;content:string}>){
   const model=process.env.BLUEHAVEN_AI_MODEL||'gemini-2.5-flash';
   const systemText=messages.filter(m=>m.role==='system').map(m=>m.content).join('\n\n');
   const contents=messages.filter(m=>m.role!=='system').map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}));
-  const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({systemInstruction:{parts:[{text:systemText}]},contents,generationConfig:{temperature:0.4,maxOutputTokens:1600}})});
+  const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':key},body:JSON.stringify({systemInstruction:{parts:[{text:systemText}]},contents,generationConfig:{temperature:0.4,maxOutputTokens:1600}})});
   const data:any=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(data?.error?.message||'Gemini API request failed ('+response.status+').');
   const result=(data?.candidates?.[0]?.content?.parts||[]).map((p:any)=>p.text||'').join('\n').trim();
