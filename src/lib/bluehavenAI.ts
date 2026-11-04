@@ -74,6 +74,8 @@ export async function getAIAdminData(){
   if(daily.length){
     const d=daily[0];
     await sql`INSERT INTO bluehaven_ai_daily_reports(report_date,total_runs,successful_runs,failed_runs,chatbot_requests) VALUES(${d.report_date},${d.total_runs},${d.successful_runs},${d.failed_runs},${d.chatbot_requests}) ON CONFLICT(report_date) DO UPDATE SET total_runs=EXCLUDED.total_runs,successful_runs=EXCLUDED.successful_runs,failed_runs=EXCLUDED.failed_runs,chatbot_requests=EXCLUDED.chatbot_requests`;
+  } else {
+    await sql`INSERT INTO bluehaven_ai_daily_reports(report_date,total_runs,successful_runs,failed_runs,chatbot_requests) VALUES((NOW() AT TIME ZONE 'Africa/Lagos')::date-1,0,0,0,0) ON CONFLICT(report_date) DO NOTHING`;
   }
   const reports=await sql`SELECT report_date,total_runs,successful_runs,failed_runs,chatbot_requests FROM bluehaven_ai_daily_reports ORDER BY report_date DESC LIMIT 14` as any[];
   return {configured:{database:true,aiGateway:Boolean(process.env.AI_GATEWAY_API_KEY),model:process.env.BLUEHAVEN_AI_MODEL||'openai/gpt-4o-mini'},skills:SKILLS.map(([id,name,description])=>({id,name,description,enabled:enabled.get(id)!==false})),activity,reports};
