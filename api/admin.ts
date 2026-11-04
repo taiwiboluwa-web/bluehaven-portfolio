@@ -1,6 +1,7 @@
 import { neon } from '@neondatabase/serverless';
 import { getAIAdminData, handleAIAdminAction, runPublicAssistant, writeDailyAIReport } from '../src/lib/bluehavenAI.js';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { checkLoginAllowed, clearLoginFailures, recordLoginFailure, safePasswordMatch } from './_login-security.js';
 
 const COOKIE = 'bluehaven_admin';
 const secret = () => process.env.BLUEHAVEN_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '';
@@ -9,6 +10,7 @@ type Req = {
   method?: string;
   url?: string;
   headers?: Record<string, string | undefined>;
+  socket?: { remoteAddress?: string };
   body?: unknown;
 };
 
@@ -104,7 +106,35 @@ export default async function handler(req: Req, res: Res) {
       return send(res, { error: 'BLUEHAVEN_ADMIN_PASSWORD is not configured on the deployment.' }, 503);
     }
 
-    if (String(body.password || '') !== secret()) return send(res, { error: 'Invalid password' }, 401);
+    let guard;
+    try {
+      guard = await checkLoginAllowed(req);
+    } catch (error) {
+      console.error('BlueHaven login protection unavailable:', error);
+      return send(res, { error: 'Sign-in is temporarily unavailable. Please try again shortly.' }, 503);
+    }
+    if (!guard.allowed) {
+      return send(res, { error: 'Too many sign-in attempts. Please wait before trying again.' }, 429, { 'retry-after': String(guard.retryAfterSeconds) });
+    }
+
+    if (!safePasswordMatch(String(body.password || ''), secret())) {
+      let lockout = 0;
+      try { lockout = await recordLoginFailure(); }
+      catch (error) {
+        console.error('BlueHaven login protection unavailable:', error);
+        return send(res, { error: 'Sign-in is temporarily unavailable. Please try again shortly.' }, 503);
+      }
+      if (lockout) {
+        return send(res, { error: 'Too many failed sign-in attempts. This account is temporarily locked.' }, 429, { 'retry-after': String(lockout) });
+      }
+      return send(res, { error: 'Invalid password' }, 401);
+    }
+
+    try { await clearLoginFailures(); }
+    catch (error) {
+      console.error('BlueHaven login protection unavailable:', error);
+      return send(res, { error: 'Sign-in is temporarily unavailable. Please try again shortly.' }, 503);
+    }
 
     const value = `${Date.now()}.${randomUUID()}`;
     const signature = createHmac('sha256', secret()).update(value).digest('base64url');
