@@ -108,10 +108,10 @@ export function ChatBot() {
     setInputValue("");
     setIsSending(true);
     try {
-      const response = await fetch("/api/assistant", {
+      const response = await fetch("/api/admin", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ message: question }),
+        body: JSON.stringify({ action: "assistant", message: question }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Assistant is temporarily unavailable.");
