@@ -1,6 +1,7 @@
 import { neon } from '@neondatabase/serverless';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 type Req = { method?: string; headers?: Record<string, string | undefined>; body?: unknown };
 type Res = { status: (n: number) => Res; setHeader: (n: string, v: string) => Res; json: (d: unknown) => void };
@@ -29,18 +30,11 @@ function isAdmin(req: Req) {
   const secret = process.env.BLUEHAVEN_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || '';
   const raw = cookie(req,'bluehaven_admin');
   if (!secret || !raw) return false;
-  const crypto = requireCrypto();
   const parts = raw.split('.');
   if (parts.length !== 3) return false;
-  const expected = crypto(parts[0]+'.'+parts[1],secret);
-  const a = Buffer.from(parts[2]), b = Buffer.from(expected);
-  return a.length===b.length && crypto.timingSafeEqual(a,b);
-}
-function requireCrypto() {
-  return Object.assign((value: string, secret: string) => {
-    const { createHmac } = require('node:crypto');
-    return createHmac('sha256',secret).update(value).digest('base64url');
-  }, require('node:crypto'));
+  const expected = Buffer.from(createHmac('sha256',secret).update(parts[0]+'.'+parts[1]).digest('base64url'));
+  const actual = Buffer.from(parts[2]);
+  return actual.length===expected.length && timingSafeEqual(actual,expected);
 }
 function parseBody(req: Req) {
   if (req.body && typeof req.body === 'object') return req.body as Record<string,unknown>;
@@ -51,7 +45,7 @@ function db() {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not configured.');
   return neon(process.env.DATABASE_URL);
 }
-async function ensureTables(sql: ReturnType<typeof neon>) {
+async function ensureTables(sql: any) {
   await sql`CREATE TABLE IF NOT EXISTS bluehaven_ai_skill_settings (
     skill_id TEXT PRIMARY KEY, enabled BOOLEAN NOT NULL DEFAULT TRUE,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
