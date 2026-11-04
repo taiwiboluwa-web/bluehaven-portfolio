@@ -1,3 +1,4 @@
+import { getAIAdminData, handleAIAdminAction, runPublicAssistant } from '../src/lib/bluehavenAI.js';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 
 const COOKIE = 'bluehaven_admin';
@@ -5,6 +6,7 @@ const secret = () => process.env.BLUEHAVEN_ADMIN_PASSWORD || process.env.ADMIN_P
 
 type Req = {
   method?: string;
+  url?: string;
   headers?: Record<string, string | undefined>;
   body?: unknown;
 };
@@ -50,6 +52,11 @@ function send(res: Res, data: unknown, status = 200, extra: Record<string, strin
 export default function handler(req: Req, res: Res) {
   try {
     if (req.method === 'GET') {
+      const view = new URL(req.url || '/', 'https://bluehaven.local').searchParams.get('view');
+      if (view === 'ai') {
+        if (!authenticated(req)) return send(res, { error: 'Unauthorized' }, 401);
+        return send(res, await getAIAdminData());
+      }
       return send(res, { authenticated: authenticated(req), configured: Boolean(secret()) });
     }
 
@@ -60,6 +67,25 @@ export default function handler(req: Req, res: Res) {
       return send(res, { ok: true }, 200, {
         'set-cookie': `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
       });
+    }
+
+    if (body.action === 'assistant') {
+      const message = String(body.message || '').trim();
+      if (!message) return send(res, { error: 'Please enter a message.' }, 400);
+      if (message.length > 4000) return send(res, { error: 'Message is too long. Please shorten it.' }, 413);
+      try {
+        const reply = await runPublicAssistant(message);
+        return send(res, { reply });
+      } catch (error) {
+        console.error('BlueHaven website assistant error:', error);
+        return send(res, { error: 'The AI assistant is temporarily unavailable. Please contact the BlueHaven team on WhatsApp at +234 806 848 3718.' }, 503);
+      }
+    }
+
+    if (body.action === 'ai_toggle' || body.action === 'ai_run') {
+      if (!authenticated(req)) return send(res, { error: 'Unauthorized' }, 401);
+      try { return send(res, await handleAIAdminAction(body)); }
+      catch (error) { return send(res, { error: error instanceof Error ? error.message : 'AI action failed' }, 503); }
     }
 
     if (!secret()) {
