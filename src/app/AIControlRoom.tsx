@@ -20,7 +20,7 @@ export default function AIControlRoom(){
   const [result,setResult]=useState('');
   const [lastUpdated,setLastUpdated]=useState<Date|null>(null);
   const load=useCallback(async()=>{
-    const response=await fetch('/api/ai',{cache:'no-store'});
+    const response=await fetch('/api/admin?view=ai',{cache:'no-store'});
     const data=await response.json();
     if(!response.ok)throw new Error(data.error||'Could not load AI control room');
     setSkills(data.skills||[]);setActivity(data.activity||[]);setReports(data.reports||[]);
@@ -36,7 +36,7 @@ export default function AIControlRoom(){
   const toggle=async(skill:Skill)=>{
     setBusySkill(skill.id);setError('');
     try{
-      const response=await fetch('/api/ai',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'toggle',skill_id:skill.id,enabled:!skill.enabled})});
+      const response=await fetch('/api/admin',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'ai_toggle',skill_id:skill.id,enabled:!skill.enabled})});
       const data=await response.json();if(!response.ok)throw new Error(data.error||'Could not update skill');
       setSkills(list=>list.map(item=>item.id===skill.id?{...item,enabled:!skill.enabled}:item));
     }catch(e){setError(e instanceof Error?e.message:'Could not update skill')}
@@ -46,7 +46,7 @@ export default function AIControlRoom(){
     if(!task.trim()||running)return;
     setRunning(true);setError('');setResult('');
     try{
-      const response=await fetch('/api/ai',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'run',skill_id:selected,task})});
+      const response=await fetch('/api/ai',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'ai_run',skill_id:selected,task})});
       const data=await response.json();if(!response.ok)throw new Error(data.error||'Skill execution failed');
       setResult(data.result||'Completed.');setTask('');await load();
     }catch(e){setError(e instanceof Error?e.message:'Skill execution failed');await load().catch(()=>{});}
