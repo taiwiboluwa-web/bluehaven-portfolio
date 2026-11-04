@@ -1,4 +1,4 @@
-import { getAIAdminData, handleAIAdminAction, runPublicAssistant } from '../src/lib/bluehavenAI.js';
+import { getAIAdminData, handleAIAdminAction, runPublicAssistant, writeDailyAIReport } from '../src/lib/bluehavenAI.js';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 
 const COOKIE = 'bluehaven_admin';
@@ -52,7 +52,17 @@ function send(res: Res, data: unknown, status = 200, extra: Record<string, strin
 export default function handler(req: Req, res: Res) {
   try {
     if (req.method === 'GET') {
-      const view = new URL(req.url || '/', 'https://bluehaven.local').searchParams.get('view');
+      const query = new URL(req.url || '/', 'https://bluehaven.local').searchParams;
+      if (query.get('job') === 'ai-daily') {
+        const cronSecret = process.env.CRON_SECRET || '';
+        if (!cronSecret || header(req, 'authorization') !== `Bearer ${cronSecret}`) return send(res, { error: 'Unauthorized' }, 401);
+        const sql = (await import('@neondatabase/serverless')).neon(process.env.DATABASE_URL || '');
+        await sql`CREATE TABLE IF NOT EXISTS bluehaven_ai_activity(id BIGSERIAL PRIMARY KEY,skill_id TEXT,activity_type TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'completed',task TEXT NOT NULL,result TEXT,model TEXT,duration_ms INTEGER,error TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
+        await sql`CREATE TABLE IF NOT EXISTS bluehaven_ai_daily_reports(report_date DATE PRIMARY KEY,total_runs INTEGER NOT NULL DEFAULT 0,successful_runs INTEGER NOT NULL DEFAULT 0,failed_runs INTEGER NOT NULL DEFAULT 0,chatbot_requests INTEGER NOT NULL DEFAULT 0,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
+        await writeDailyAIReport(sql);
+        return send(res, { ok: true, report: 'daily AI activity recorded' });
+      }
+      const view = query.get('view');
       if (view === 'ai') {
         if (!authenticated(req)) return send(res, { error: 'Unauthorized' }, 401);
         return send(res, await getAIAdminData());
