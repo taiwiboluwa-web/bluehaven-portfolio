@@ -50,7 +50,7 @@ function send(res: Res, data: unknown, status = 200, extra: Record<string, strin
   res.json(data);
 }
 
-export default function handler(req: Req, res: Res) {
+export default async function handler(req: Req, res: Res) {
   try {
     if (req.method === 'GET') {
       const query = new URL(req.url || '/', 'https://bluehaven.local').searchParams;
