@@ -63,7 +63,7 @@ export default function AIControlRoom(){
       <div className={panel+' p-4'}><p className="text-[10px] uppercase tracking-[.16em] text-white/40">Website AI chats</p><p className="mt-2 text-2xl font-black">{chatToday}</p><p className="mt-1 text-xs text-white/35">Requests handled today</p></div>
       <div className={panel+' p-4'}><p className="text-[10px] uppercase tracking-[.16em] text-white/40">AI connection</p><p className="mt-2 flex items-center gap-2 text-sm font-bold">{configured?.gemini?<><CheckCircle2 size={16} className="text-emerald-400"/> Gemini connected</>:<><CircleAlert size={16} className="text-amber-300"/> Needs Gemini key</>}</p><p className="mt-1 truncate text-xs text-white/35">{configured?.model||'Checking model…'}</p></div>
     </div>
-    {!configured?.aiGateway&&<div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-300/[.06] p-4 text-sm text-amber-100"><strong>AI runtime needs one deployment setting.</strong> Add <code>GEMINI_API_KEY</code> in Vercel → Project → Settings → Environment Variables, then redeploy. The key stays server-side and is never sent to visitors.</div>}
+    {!configured?.gemini&&<div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-300/[.06] p-4 text-sm text-amber-100"><strong>AI runtime needs one deployment setting.</strong> Add <code>GEMINI_API_KEY</code> in Vercel → Project → Settings → Environment Variables, then redeploy. The key stays server-side and is never sent to visitors.</div>}
     {error&&<div className="mt-4 rounded-xl border border-red-400/20 bg-red-400/[.07] p-3 text-sm text-red-200">{error}</div>}
     <div className="mt-5 grid gap-5 xl:grid-cols-[1.1fr_.9fr]">
       <div className={panel+' p-5'}>
