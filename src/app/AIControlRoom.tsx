@@ -11,7 +11,7 @@ export default function AIControlRoom(){
   const [skills,setSkills]=useState<Skill[]>([]);
   const [activity,setActivity]=useState<Log[]>([]);
   const [reports,setReports]=useState<Report[]>([]);
-  const [configured,setConfigured]=useState<{database:boolean;aiGateway:boolean;model:string}|null>(null);
+  const [configured,setConfigured]=useState<{database:boolean;gemini:boolean;model:string}|null>(null);
   const [selected,setSelected]=useState('marketing-plan');
   const [task,setTask]=useState('');
   const [running,setRunning]=useState(false);
@@ -80,7 +80,7 @@ export default function AIControlRoom(){
           <select value={selected} onChange={e=>setSelected(e.target.value)} className="w-full rounded-xl border border-white/10 bg-[#171719] px-3 py-3 text-sm text-white">{skills.filter(s=>s.enabled).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
           <label className="mb-2 mt-4 block text-xs text-white/45">What should it work on?</label>
           <textarea value={task} onChange={e=>setTask(e.target.value)} rows={5} placeholder="Describe a specific BlueHaven task, goal or problem…" className="w-full resize-y rounded-xl border border-white/10 bg-white/[.04] px-3 py-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-[#7f56d6]"/>
-          <button type="button" disabled={running||!task.trim()||!configured?.aiGateway||!skills.some(s=>s.id===selected&&s.enabled)} onClick={run} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#ffde59] px-4 py-3 text-sm font-black text-black disabled:opacity-40">{running?<><RefreshCw size={15} className="animate-spin"/> Running skill…</>:<><Play size={15}/> Run skill</>}</button>
+          <button type="button" disabled={running||!task.trim()||!configured?.gemini||!skills.some(s=>s.id===selected&&s.enabled)} onClick={run} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#ffde59] px-4 py-3 text-sm font-black text-black disabled:opacity-40">{running?<><RefreshCw size={15} className="animate-spin"/> Running skill…</>:<><Play size={15}/> Run skill</>}</button>
           {result&&<div className="mt-4 max-h-96 overflow-auto rounded-xl border border-emerald-400/20 bg-emerald-400/[.05] p-4"><p className="mb-2 text-xs font-bold uppercase tracking-wider text-emerald-300">Execution result</p><pre className="whitespace-pre-wrap font-sans text-sm leading-6 text-white/80">{result}</pre></div>}
         </div>
         <div className={panel+' p-5'}>
