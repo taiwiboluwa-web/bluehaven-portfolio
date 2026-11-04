@@ -1,3 +1,4 @@
+import { neon } from '@neondatabase/serverless';
 import { getAIAdminData, handleAIAdminAction, runPublicAssistant, writeDailyAIReport } from '../src/lib/bluehavenAI.js';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 
@@ -56,7 +57,8 @@ export default function handler(req: Req, res: Res) {
       if (query.get('job') === 'ai-daily') {
         const cronSecret = process.env.CRON_SECRET || '';
         if (!cronSecret || header(req, 'authorization') !== `Bearer ${cronSecret}`) return send(res, { error: 'Unauthorized' }, 401);
-        const sql = (await import('@neondatabase/serverless')).neon(process.env.DATABASE_URL || '');
+        if (!process.env.DATABASE_URL) return send(res, { error: 'DATABASE_URL is not configured' }, 503);
+        const sql = neon(process.env.DATABASE_URL);
         await sql`CREATE TABLE IF NOT EXISTS bluehaven_ai_activity(id BIGSERIAL PRIMARY KEY,skill_id TEXT,activity_type TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'completed',task TEXT NOT NULL,result TEXT,model TEXT,duration_ms INTEGER,error TEXT,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
         await sql`CREATE TABLE IF NOT EXISTS bluehaven_ai_daily_reports(report_date DATE PRIMARY KEY,total_runs INTEGER NOT NULL DEFAULT 0,successful_runs INTEGER NOT NULL DEFAULT 0,failed_runs INTEGER NOT NULL DEFAULT 0,chatbot_requests INTEGER NOT NULL DEFAULT 0,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
         await writeDailyAIReport(sql);
