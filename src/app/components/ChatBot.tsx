@@ -41,6 +41,7 @@ export function ChatBot() {
     },
   ]);
   const [inputValue, setInputValue] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -94,53 +95,51 @@ export function ChatBot() {
     return { text: BOT_RESPONSES.default, showWhatsApp: true };
   };
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
-
+  const sendToAssistant = async (text: string) => {
+    const question = text.trim();
+    if (!question || isSending) return;
     const userMessage: Message = {
-      id: messages.length + 1,
-      text: inputValue,
+      id: Date.now(),
+      text: question,
       sender: "user",
       timestamp: new Date(),
     };
-
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
-
-    // Bot response after delay
-    setTimeout(() => {
-      const response = getBotResponse(inputValue);
+    setIsSending(true);
+    try {
+      const response = await fetch("/api/assistant", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ message: question }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Assistant is temporarily unavailable.");
       const botMessage: Message = {
-        id: messages.length + 2,
-        text: response.text,
+        id: Date.now() + 1,
+        text: String(data.reply || "I couldn't prepare a response just now."),
         sender: "bot",
         timestamp: new Date(),
-        showWhatsAppButton: response.showWhatsApp,
+        showWhatsAppButton: true,
       };
       setMessages((prev) => [...prev, botMessage]);
-    }, 800);
+    } catch (error) {
+      setMessages((prev) => [...prev, {
+        id: Date.now() + 1,
+        text: error instanceof Error ? error.message : "The assistant is temporarily unavailable. Please contact our team on WhatsApp.",
+        sender: "bot",
+        timestamp: new Date(),
+        showWhatsAppButton: true,
+      }]);
+    } finally {
+      setIsSending(false);
+    }
   };
 
+  const handleSendMessage = () => sendToAssistant(inputValue);
   const handleQuickReply = (responseKey: string) => {
-    const userMessage: Message = {
-      id: messages.length + 1,
-      text: QUICK_REPLIES.find((q) => q.response === responseKey)?.text || "",
-      sender: "user",
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-
-    setTimeout(() => {
-      const botMessage: Message = {
-        id: messages.length + 2,
-        text: BOT_RESPONSES[responseKey],
-        sender: "bot",
-        timestamp: new Date(),
-        showWhatsAppButton: true, // All quick replies should show WhatsApp option
-      };
-      setMessages((prev) => [...prev, botMessage]);
-    }, 800);
+    const label = QUICK_REPLIES.find((item) => item.response === responseKey)?.text || responseKey;
+    void sendToAssistant(label);
   };
 
   const openWhatsApp = () => {
@@ -329,9 +328,10 @@ export function ChatBot() {
                 <input
                   type="text"
                   value={inputValue}
+                  disabled={isSending}
                   onChange={(e) => setInputValue(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-                  placeholder="Type your message..."
+                  onKeyPress={(e) => e.key === "Enter" && !isSending && handleSendMessage()}
+                  placeholder={isSending ? "BlueHaven is thinking…" : "Type your message..."}
                   className="flex-1 px-4 py-2 rounded-xl text-sm border outline-none transition-all"
                   style={{
                     background: "rgba(255, 255, 255, 0.05)",
