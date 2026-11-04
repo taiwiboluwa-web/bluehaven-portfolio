@@ -84,7 +84,7 @@ export async function getAIAdminData(){
   const enabled=new Map(settings.map((s:any)=>[s.skill_id,s.enabled]));
   await writeDailyAIReport(sql);
   const reports=await sql`SELECT report_date,total_runs,successful_runs,failed_runs,chatbot_requests FROM bluehaven_ai_daily_reports ORDER BY report_date DESC LIMIT 14` as any[];
-  return {configured:{database:true,aiGateway:Boolean(process.env.AI_GATEWAY_API_KEY),model:process.env.BLUEHAVEN_AI_MODEL||'openai/gpt-4o-mini'},skills:SKILLS.map(([id,name,description])=>({id,name,description,enabled:enabled.get(id)!==false})),activity,reports};
+  return {configured:{database:true,gemini:Boolean(process.env.GEMINI_API_KEY),provider:'Google Gemini',model:process.env.BLUEHAVEN_AI_MODEL||'gemini-2.5-flash'},skills:SKILLS.map(([id,name,description])=>({id,name,description,enabled:enabled.get(id)!==false})),activity,reports};
 }
 
 export async function handleAIAdminAction(body:Record<string,unknown>){
