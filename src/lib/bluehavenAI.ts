@@ -56,27 +56,31 @@ export async function runPublicAssistant(message:string){
   }
 }
 
+export async function writeDailyAIReport(sql:any){
+  const daily=await sql`
+      SELECT (created_at AT TIME ZONE 'Africa/Lagos')::date AS report_date,
+        COUNT(*) FILTER(WHERE activity_type='manual_skill_run')::int AS total_runs,
+        COUNT(*) FILTER(WHERE activity_type='manual_skill_run' AND status='completed')::int AS successful_runs,
+        COUNT(*) FILTER(WHERE activity_type='manual_skill_run' AND status='failed')::int AS failed_runs,
+        COUNT(*) FILTER(WHERE activity_type='website_chat')::int AS chatbot_requests
+      FROM bluehaven_ai_activity
+      WHERE (created_at AT TIME ZONE 'Africa/Lagos')::date=(NOW() AT TIME ZONE 'Africa/Lagos')::date-1
+      GROUP BY (created_at AT TIME ZONE 'Africa/Lagos')::date
+    ` as any[];
+    if(daily.length){
+      const d=daily[0];
+      await sql`INSERT INTO bluehaven_ai_daily_reports(report_date,total_runs,successful_runs,failed_runs,chatbot_requests) VALUES(${d.report_date},${d.total_runs},${d.successful_runs},${d.failed_runs},${d.chatbot_requests}) ON CONFLICT(report_date) DO UPDATE SET total_runs=EXCLUDED.total_runs,successful_runs=EXCLUDED.successful_runs,failed_runs=EXCLUDED.failed_runs,chatbot_requests=EXCLUDED.chatbot_requests`;
+    } else {
+      await sql`INSERT INTO bluehaven_ai_daily_reports(report_date,total_runs,successful_runs,failed_runs,chatbot_requests) VALUES((NOW() AT TIME ZONE 'Africa/Lagos')::date-1,0,0,0,0) ON CONFLICT(report_date) DO NOTHING`;
+    }
+}
+
 export async function getAIAdminData(){
   const sql=database();await ensureTables(sql);
   const settings=await sql`SELECT skill_id,enabled FROM bluehaven_ai_skill_settings` as any[];
   const activity=await sql`SELECT id,skill_id,activity_type,status,task,result,model,duration_ms,error,created_at FROM bluehaven_ai_activity ORDER BY created_at DESC LIMIT 50` as any[];
   const enabled=new Map(settings.map((s:any)=>[s.skill_id,s.enabled]));
-  const daily=await sql`
-    SELECT (created_at AT TIME ZONE 'Africa/Lagos')::date AS report_date,
-      COUNT(*) FILTER(WHERE activity_type='manual_skill_run')::int AS total_runs,
-      COUNT(*) FILTER(WHERE activity_type='manual_skill_run' AND status='completed')::int AS successful_runs,
-      COUNT(*) FILTER(WHERE activity_type='manual_skill_run' AND status='failed')::int AS failed_runs,
-      COUNT(*) FILTER(WHERE activity_type='website_chat')::int AS chatbot_requests
-    FROM bluehaven_ai_activity
-    WHERE (created_at AT TIME ZONE 'Africa/Lagos')::date=(NOW() AT TIME ZONE 'Africa/Lagos')::date-1
-    GROUP BY (created_at AT TIME ZONE 'Africa/Lagos')::date
-  ` as any[];
-  if(daily.length){
-    const d=daily[0];
-    await sql`INSERT INTO bluehaven_ai_daily_reports(report_date,total_runs,successful_runs,failed_runs,chatbot_requests) VALUES(${d.report_date},${d.total_runs},${d.successful_runs},${d.failed_runs},${d.chatbot_requests}) ON CONFLICT(report_date) DO UPDATE SET total_runs=EXCLUDED.total_runs,successful_runs=EXCLUDED.successful_runs,failed_runs=EXCLUDED.failed_runs,chatbot_requests=EXCLUDED.chatbot_requests`;
-  } else {
-    await sql`INSERT INTO bluehaven_ai_daily_reports(report_date,total_runs,successful_runs,failed_runs,chatbot_requests) VALUES((NOW() AT TIME ZONE 'Africa/Lagos')::date-1,0,0,0,0) ON CONFLICT(report_date) DO NOTHING`;
-  }
+  await writeDailyAIReport(sql);
   const reports=await sql`SELECT report_date,total_runs,successful_runs,failed_runs,chatbot_requests FROM bluehaven_ai_daily_reports ORDER BY report_date DESC LIMIT 14` as any[];
   return {configured:{database:true,aiGateway:Boolean(process.env.AI_GATEWAY_API_KEY),model:process.env.BLUEHAVEN_AI_MODEL||'openai/gpt-4o-mini'},skills:SKILLS.map(([id,name,description])=>({id,name,description,enabled:enabled.get(id)!==false})),activity,reports};
 }
