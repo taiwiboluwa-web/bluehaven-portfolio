@@ -15,8 +15,17 @@
     {
       "path": "/api/cron/archive-media",
       "schedule": "0 0 1 * *"
+    },
+    {
+      "path": "/api/cron/ai-daily",
+      "schedule": "55 22 * * *"
     }
   ],
+  "functions": {
+    "api/ai.ts": {
+      "includeFiles": ".agents/skills/**/SKILL.md"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/sbcs-work",
