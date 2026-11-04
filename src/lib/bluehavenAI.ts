@@ -27,14 +27,16 @@ async function ensureTables(sql:any){
   await sql`CREATE TABLE IF NOT EXISTS bluehaven_ai_daily_reports(report_date DATE PRIMARY KEY,total_runs INTEGER NOT NULL DEFAULT 0,successful_runs INTEGER NOT NULL DEFAULT 0,failed_runs INTEGER NOT NULL DEFAULT 0,chatbot_requests INTEGER NOT NULL DEFAULT 0,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
 }
 async function askModel(messages:Array<{role:string;content:string}>){
-  const key=process.env.AI_GATEWAY_API_KEY;
-  if(!key)throw new Error('AI_GATEWAY_API_KEY is not configured in Vercel.');
-  const model=process.env.BLUEHAVEN_AI_MODEL||'openai/gpt-4o-mini';
-  const response=await fetch('https://ai-gateway.vercel.sh/v1/chat/completions',{method:'POST',headers:{authorization:'Bearer '+key,'content-type':'application/json'},body:JSON.stringify({model,messages,temperature:0.4,max_tokens:1600})});
+  const key=process.env.GEMINI_API_KEY;
+  if(!key)throw new Error('GEMINI_API_KEY is not configured in Vercel.');
+  const model=process.env.BLUEHAVEN_AI_MODEL||'gemini-2.5-flash';
+  const systemText=messages.filter(m=>m.role==='system').map(m=>m.content).join('\n\n');
+  const contents=messages.filter(m=>m.role!=='system').map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}));
+  const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({systemInstruction:{parts:[{text:systemText}]},contents,generationConfig:{temperature:0.4,maxOutputTokens:1600}})});
   const data:any=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(data?.error?.message||data?.message||'AI Gateway request failed ('+response.status+').');
-  const result=data?.choices?.[0]?.message?.content;
-  if(typeof result!=='string'||!result.trim())throw new Error('AI provider returned an empty response.');
+  if(!response.ok)throw new Error(data?.error?.message||'Gemini API request failed ('+response.status+').');
+  const result=(data?.candidates?.[0]?.content?.parts||[]).map((p:any)=>p.text||'').join('\n').trim();
+  if(!result)throw new Error(data?.promptFeedback?.blockReason||'Gemini returned an empty response.');
   return {text:result,model};
 }
 async function skillInstructions(id:string){
