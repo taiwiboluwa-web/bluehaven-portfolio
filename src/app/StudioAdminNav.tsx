@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Activity, BookOpen, BrainCircuit, FolderKanban, LayoutDashboard, MessageSquareText, Sparkles, Users } from 'lucide-react';
 
 type Props={active?:'overview'|'portfolio'|'stories'|'ai'|'sbcs'|'blog'|'staff'};
@@ -12,15 +11,14 @@ const items=[
 ] as const;
 
 export default function StudioAdminNav({active='overview'}:Props){
-  const [selected,setSelected]=useState(active);
   const links=active==='staff'?[...items,{id:'staff' as const,label:'Staff workbench',short:'Staff',href:'/admin/sbcs/work',Icon:Users}]:items;
   return <>
-    <nav aria-label="Studio workspace navigation" className="studio-glass-nav mx-auto my-5 hidden w-full max-w-[1120px] items-center gap-1.5 rounded-full border border-white/[.13] bg-[#141923]/75 p-2 shadow-[0_18px_55px_rgba(0,0,0,.32)] backdrop-blur-2xl md:flex">
-      <span className="mr-2 flex shrink-0 items-center gap-2 border-r border-white/10 px-3 py-2 text-[9px] font-black uppercase tracking-[.2em] text-white/35"><Sparkles size={13} className="text-[#ffde59]"/> Studio</span>
-      {links.map(({id,label,href,Icon})=><a key={id} href={href} onClick={()=>setSelected(id)} aria-current={selected===id?'page':undefined} className={'studio-glass-nav-item group relative inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full px-3 py-3 text-[11px] font-semibold transition-all duration-300 '+(selected===id?'is-active bg-[#ffde59]/[.13] text-[#ffde59] shadow-[inset_0_1px_0_rgba(255,255,255,.09),0_0_24px_rgba(255,222,89,.08)]':'text-white/48 hover:bg-white/[.07] hover:text-white')}><Icon size={15} className={active===id?'drop-shadow-[0_0_8px_rgba(255,222,89,.6)]':'transition-transform group-hover:-translate-y-0.5'}/><span className="truncate">{label}</span>{active===id&&<span className="absolute bottom-1.5 h-1 w-1 rounded-full bg-[#ffde59] shadow-[0_0_10px_#ffde59]"/>}</a>)}
+    <nav aria-label="Studio workspace navigation" className="studio-glass-nav mx-auto my-5 hidden w-full max-w-[1120px] items-center gap-1 rounded-full border border-white/[.14] bg-[linear-gradient(135deg,rgba(31,38,51,.88),rgba(13,16,23,.82))] p-2 shadow-[0_20px_65px_rgba(0,0,0,.42),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl md:flex">
+      <span className="mr-1 flex shrink-0 items-center gap-2 border-r border-white/10 px-3 py-2 text-[9px] font-black uppercase tracking-[.2em] text-white/40"><Sparkles size={13} className="text-[#ffde59]"/> Studio</span>
+      {links.map(({id,label,href,Icon})=><a key={id} href={href} aria-current={active===id?'page':undefined} className={'group relative inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border px-3 py-3 text-[11px] font-bold transition-all duration-300 '+(active===id?'border-[#ffde59]/70 bg-[#ffde59] text-[#17130a] shadow-[0_0_24px_rgba(255,222,89,.2),inset_0_1px_0_rgba(255,255,255,.55)]':'border-transparent text-white/55 hover:border-white/10 hover:bg-white/[.09] hover:text-white')}><Icon size={15} className={active===id?'':'transition-transform group-hover:-translate-y-0.5'}/><span className="truncate">{label}</span></a>)}
     </nav>
-    <nav aria-label="Mobile studio navigation" className="studio-mobile-dock fixed inset-x-3 bottom-3 z-[70] flex items-center justify-around gap-1 rounded-[24px] border border-white/[.16] bg-[#151a23]/90 px-2 py-2 shadow-[0_18px_60px_rgba(0,0,0,.58)] backdrop-blur-2xl md:hidden">
-      {links.map(({id,short,href,Icon})=><a key={id} href={href} onClick={()=>setSelected(id)} aria-label={id} aria-current={selected===id?'page':undefined} className={'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-[17px] px-1 py-2 text-[9px] font-semibold transition-all '+(selected===id?'bg-[#ffde59]/[.13] text-[#ffde59] shadow-[inset_0_1px_0_rgba(255,255,255,.1)]':'text-white/48 hover:bg-white/10 hover:text-white')}><Icon size={17}/><span>{short}</span></a>)}
+    <nav aria-label="Mobile studio navigation" className="studio-mobile-dock fixed inset-x-3 bottom-3 z-[70] flex items-center justify-around gap-1 rounded-[24px] border border-white/[.18] bg-[linear-gradient(135deg,rgba(31,38,51,.96),rgba(13,16,23,.94))] px-2 py-2 shadow-[0_18px_60px_rgba(0,0,0,.62),inset_0_1px_0_rgba(255,255,255,.08)] backdrop-blur-2xl md:hidden">
+      {links.map(({id,short,href,Icon})=><a key={id} href={href} aria-label={id} aria-current={active===id?'page':undefined} className={'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-[17px] border px-1 py-2 text-[9px] font-bold transition-all '+(active===id?'border-[#ffde59]/60 bg-[#ffde59] text-[#17130a] shadow-[0_0_18px_rgba(255,222,89,.16)]':'border-transparent text-white/55 hover:bg-white/10 hover:text-white')}><Icon size={17}/><span>{short}</span></a>)}
     </nav>
   </>;
 }
