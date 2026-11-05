@@ -85,13 +85,19 @@ function renamePortfolioControls() {
   });
 }
 
+function normalizePath(path: string): string {
+  const trimmed = path.trim();
+  if (!trimmed || trimmed === '/') return '/';
+  return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
+}
+
 function highlightCurrentNavigation() {
-  const currentPath = window.location.pathname.replace(/\\/$/, '') || '/';
+  const currentPath = normalizePath(window.location.pathname);
   document.querySelectorAll('header nav button, header nav a').forEach((control) => {
     const label = normalizeLabel(control.textContent ?? '');
     const href = control instanceof HTMLAnchorElement ? control.getAttribute('href') : getNavigationHref(label);
     if (!href || !href.startsWith('/')) return;
-    const targetPath = href.replace(/\\/$/, '') || '/';
+    const targetPath = normalizePath(href);
     const active = targetPath === currentPath || (targetPath !== '/' && currentPath.startsWith(targetPath + '/'));
     if (active) {
       control.setAttribute('data-bh-active', '1');
