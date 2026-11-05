@@ -310,3 +310,65 @@ html {
   }
   .bluehaven-world-atmosphere { display: none; }
 }
+
+
+/* BlueHaven public-site glass navigation — intentionally independent of admin styling. */
+.min-h-screen header,
+header:has(> div > a[href="/"]) {
+  background: rgba(10,10,12,.76) !important;
+  border-color: rgba(255,255,255,.09) !important;
+  box-shadow: 0 12px 36px rgba(0,0,0,.24) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+  backdrop-filter: blur(22px) saturate(145%);
+}
+.min-h-screen header nav ul,
+header:has(> div > a[href="/"]) nav ul {
+  display:flex; align-items:center; gap:4px !important; padding:6px !important;
+  border:1px solid rgba(255,255,255,.12); border-radius:999px;
+  background:linear-gradient(135deg,rgba(255,255,255,.11),rgba(255,255,255,.035));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 8px 26px rgba(0,0,0,.24);
+}
+.min-h-screen header nav ul li, header:has(> div > a[href="/"]) nav ul li { list-style:none; }
+.min-h-screen header nav ul li > button,
+.min-h-screen header nav ul li > a,
+header:has(> div > a[href="/"]) nav ul li > button,
+header:has(> div > a[href="/"]) nav ul li > a {
+  display:block; width:auto !important; min-height:38px; padding:10px 15px !important;
+  border:1px solid transparent; border-radius:999px !important;
+  color:rgba(255,255,255,.7) !important; background:transparent !important;
+  font-size:10px !important; font-weight:700 !important; letter-spacing:.13em !important;
+  line-height:1 !important; text-transform:uppercase; white-space:nowrap;
+  transition:all .2s ease;
+}
+.min-h-screen header nav ul li > button:hover,
+.min-h-screen header nav ul li > a:hover,
+header:has(> div > a[href="/"]) nav ul li > button:hover,
+header:has(> div > a[href="/"]) nav ul li > a:hover {
+  color:#fff !important; background:rgba(255,255,255,.09) !important;
+  border-color:rgba(255,255,255,.12);
+}
+.min-h-screen header nav ul li > [data-bh-active="1"],
+header:has(> div > a[href="/"]) nav ul li > [data-bh-active="1"] {
+  color:#111 !important; background:#ffde59 !important;
+  border-color:rgba(255,222,89,.75) !important;
+  box-shadow:0 0 22px rgba(255,222,89,.18),inset 0 1px 0 rgba(255,255,255,.45);
+}
+.min-h-screen header nav ul li > button > div { display:none !important; }
+.min-h-screen header > div:first-child h1 { letter-spacing:.12em; }
+@media(max-width:767px) {
+  .min-h-screen header nav ul, header:has(> div > a[href="/"]) nav ul {
+    align-items:stretch; flex-direction:column; gap:3px !important; padding:10px !important;
+    border:0; border-radius:0; background:transparent; box-shadow:none;
+  }
+  .min-h-screen header nav ul li > button,
+  .min-h-screen header nav ul li > a,
+  header:has(> div > a[href="/"]) nav ul li > button,
+  header:has(> div > a[href="/"]) nav ul li > a {
+    width:100% !important; padding:15px 18px !important; border-radius:14px !important; text-align:left;
+  }
+}
+@media(min-width:768px) and (max-width:1100px) {
+  .min-h-screen header nav ul li > button, .min-h-screen header nav ul li > a {
+    padding-left:9px !important; padding-right:9px !important; font-size:9px !important;
+  }
+}
