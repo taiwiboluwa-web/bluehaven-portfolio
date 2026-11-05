@@ -85,6 +85,24 @@ function renamePortfolioControls() {
   });
 }
 
+function highlightCurrentNavigation() {
+  const currentPath = window.location.pathname.replace(/\\/$/, '') || '/';
+  document.querySelectorAll('header nav button, header nav a').forEach((control) => {
+    const label = normalizeLabel(control.textContent ?? '');
+    const href = control instanceof HTMLAnchorElement ? control.getAttribute('href') : getNavigationHref(label);
+    if (!href || !href.startsWith('/')) return;
+    const targetPath = href.replace(/\\/$/, '') || '/';
+    const active = targetPath === currentPath || (targetPath !== '/' && currentPath.startsWith(targetPath + '/'));
+    if (active) {
+      control.setAttribute('data-bh-active', '1');
+      control.setAttribute('aria-current', 'page');
+    } else {
+      control.removeAttribute('data-bh-active');
+      control.removeAttribute('aria-current');
+    }
+  });
+}
+
 function refineConversionControls() {
   document.querySelectorAll('button, a, [role="button"]').forEach((control) => {
     const label = (control.textContent ?? '').trim();
@@ -159,6 +177,7 @@ export default function NavigationEnhancement() {
       addStoriesToLists();
       addAboutToLists();
       renamePortfolioControls();
+      highlightCurrentNavigation();
       refineConversionControls();
       addMissingFooterNavigation();
     };
