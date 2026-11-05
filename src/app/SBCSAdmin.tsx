@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Activity, ArrowLeft, Bell, Check, ChevronDown, CircleAlert, Clock3, RefreshCw, School, Search, Send, Settings2, ShieldCheck, Users, X } from 'lucide-react';
+import StudioAdminNav from './StudioAdminNav';
 
 type Enquiry={id:string;school_name:string;contact_name:string;email:string|null;student_count:string;notes:string;status:'new'|'contacted'|'qualified'|'closed';source:string;created_at:string;updated_at:string};
 type EventItem={id:string;event_type:string;summary:string;enquiry_id:string|null;metadata:Record<string,unknown>;created_at:string};
@@ -34,6 +35,7 @@ export default function SBCSAdmin(){
     <div><a href="/admin" className="inline-flex items-center gap-2 text-xs text-[#A1A1AA] transition hover:text-white"><ArrowLeft size={14}/> Main admin</a><div className="mt-5 flex items-center gap-3"><div className="grid h-11 w-11 place-items-center rounded-xl border border-[#52525B] bg-[#1B1B20]"><School size={21}/></div><div><p className="text-[10px] font-bold uppercase tracking-[.25em] text-[#A1A1AA]">BlueHaven product operations</p><h1 className="mt-1 text-3xl font-black tracking-tight text-white sm:text-4xl">SBCS Control Room</h1></div></div><p className="mt-3 max-w-2xl text-sm leading-6 text-[#A1A1AA]">Student Birthday Celebration System · Enquiries, operational activity, and pilot configuration.</p></div>
     <div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-2 rounded-full border border-[#52525B] bg-[#1B1B20] px-3 py-2 text-[11px]"><span className="h-2 w-2 rounded-full bg-emerald-400"/>{data?.settings?.pilot_mode?'Pilot mode':'Pilot paused'}</span><button className={button} onClick={()=>load()} disabled={busy}><RefreshCw size={14} className={busy?'animate-spin':''}/> Refresh</button><a href="/admin/sbcs/work" className={button}>Staff workbench</a><a href="/services/sbcs" target="_blank" rel="noreferrer" className={button}>View public page</a></div>
    </header>
+   <StudioAdminNav active="sbcs" />
    {error&&<div role="alert" className="mt-5 flex items-start gap-3 rounded-xl border border-red-300/20 bg-red-300/5 p-4 text-sm text-red-200"><CircleAlert size={17} className="mt-0.5 shrink-0"/>{error}</div>}
    {notice&&!error&&<div className="mt-5 flex items-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-300/5 p-3 text-sm text-emerald-200"><Check size={16}/>{notice}</div>}
    <nav className="mt-6 flex gap-1 overflow-x-auto rounded-2xl border border-[#303037] bg-[#111114] p-1.5">{tabs.map(([id,label])=><button key={id} onClick={()=>setTab(id)} className={'shrink-0 rounded-xl px-4 py-3 text-xs font-semibold transition '+(tab===id?'bg-[#D4D4D8] text-[#09090B]':'text-[#A1A1AA] hover:bg-white/5 hover:text-white')}>{label}</button>)}</nav>
